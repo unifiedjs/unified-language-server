@@ -9,6 +9,8 @@ First, install the server
 
 ```
 yarn global add retext-language-server
+#OR
+npm install -g retext-language-server
 ```
 
 Next, configure the client (your text editor) to use `retext-language-server --stdio`.  

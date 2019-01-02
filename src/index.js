@@ -1,17 +1,33 @@
 #!/usr/bin/node
 const LangServer = require("vscode-languageserver");
 const retext = require("retext");
+const {readFileSync} = require("fs");
 
 const then = (...fs) => x => x.then(...fs);
 
 const DEFAULT_SETTINGS = {
 	plugins: [
 		["profanities"],
-		["spell", {}],
+		["spell", "require://dictionary-en-gb"],
 	],
 };
 
 const locationToPosition = ({line, column}) => ({line: line - 1, character: column - 1});
+
+const parsePluginOptions = obj =>
+	typeof(obj) == "object"
+		? JSON.parse(JSON.stringify(obj), (k, v) => {
+			if (typeof(v) == "string") {
+				if (v.startsWith("require://")) {
+					return require(v.slice("require://".length));
+				} else if (v.startsWith("file://")) {
+					return readFileSync(v.slice("file://".length));
+				}
+			}
+
+			return v;
+		})
+		: obj;
 
 const setupRetext = settings => 
 	(settings.plugins.length >= 1
@@ -21,7 +37,7 @@ const setupRetext = settings =>
 		console.log(x);
 		return x;
 	}).reduce(
-		(retext_, [name, options]) => retext_.use(require("retext-" + name), options),
+		(retext_, [name, options]) => retext_.use(require("retext-" + name), parsePluginOptions(options)),
 		retext()
 	);
 
@@ -29,8 +45,6 @@ const connection = LangServer.createConnection(LangServer.ProposedFeatures.all);
 const documents = new LangServer.TextDocuments();
 
 let myretext = setupRetext(DEFAULT_SETTINGS);
-
-myretext.process("hello world").then(console.log).catch(console.log)
 
 const validate = change =>
 	myretext.process(
@@ -63,7 +77,7 @@ connection.onInitialize(_clientCapabilities => ({
 
 connection.onDidChangeConfiguration(change => {
 	myretext = setupRetext(
-		change.settings.retextLanguageServer
+		change.settings["retext-language-server"]
 		|| DEFAULT_SETTINGS
 	);
 
