@@ -1,0 +1,34 @@
+{
+  "name": "retext-language-server",
+  "version": "0.1.0",
+  "description": "LSP implementation of retext",
+  "main": "dist/index.js",
+  "scripts": {
+    "babel": "babel --watch src/ --out-dir dist/"
+  },
+  "author": "aecepoglu",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/cli": "^7.2.3",
+    "@babel/core": "^7.2.2",
+    "@babel/plugin-proposal-pipeline-operator": "^7.2.0",
+    "@babel/preset-env": "^7.2.3"
+  },
+  "babel": {
+    "plugins": [
+      [
+        "@babel/plugin-proposal-pipeline-operator",
+        {
+          "proposal": "minimal"
+        }
+      ]
+    ]
+  },
+  "dependencies": {
+    "retext": "^6.0.1",
+    "retext-english": "^3.0.2",
+    "retext-profanities": "^4.6.0",
+    "retext-spell": "^2.4.0",
+    "vscode-languageserver": "^5.2.1"
+  }
+}
