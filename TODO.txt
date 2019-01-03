@@ -1,0 +1,9 @@
+############
+# [ ] todo
+# [o] done
+############
+
+[ ] support incremental changes
+[ ] add documentation for more editors/IDEs
+[ ] add automated testing, linting
+[ ] decide what to do with markdown, latex etc: whether this server should check them or if they should have their own servers
