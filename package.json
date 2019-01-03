@@ -1,13 +1,13 @@
 {
   "name": "retext-language-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A language server for spoken languages using retext",
   "homepage": "https://github.com/aecepoglu/retext-language-server",
   "main": "src/index.js",
   "author": "aecepoglu",
   "license": "MIT",
   "bin": {
-	  "retext-language-server": "./src/index.js"
+    "retext-language-server": "./src/index.js"
   },
   "dependencies": {
     "dictionary-en-gb": "^2.0.0",
@@ -16,5 +16,12 @@
     "retext-spell": "^2.4.0",
     "vscode-languageserver": "^5.2.1"
   },
-  "keywords": ["LSP", "langserver", "redex", "spelling", "readability", "spell check"]
+  "keywords": [
+    "LSP",
+    "langserver",
+    "redex",
+    "spelling",
+    "readability",
+    "spell check"
+  ]
 }
