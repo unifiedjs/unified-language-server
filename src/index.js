@@ -14,8 +14,8 @@ const DEFAULT_SETTINGS = {
 
 const locationToPosition = ({line, column}) => ({line: line - 1, character: column - 1});
 
-const parsePluginOptions = obj =>
-	typeof(obj) == "object"
+const parsePluginOptions = obj => 
+	typeof(obj) !== "undefined"
 		? JSON.parse(JSON.stringify(obj), (k, v) => {
 			if (typeof(v) == "string") {
 				if (v.startsWith("require://")) {
@@ -34,7 +34,6 @@ const setupRetext = settings =>
 		? settings.plugins
 		: DEFAULT_SETTINGS.plugins
 	).map(x => {
-		console.log(x);
 		return x;
 	}).reduce(
 		(retext_, [name, options]) => retext_.use(require("retext-" + name), parsePluginOptions(options)),
