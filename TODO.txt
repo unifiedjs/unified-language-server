@@ -3,6 +3,7 @@
 # [o] done
 ############
 
+[ ] unified-engine-language-server
 [ ] support incremental changes
 [ ] add documentation for more editors/IDEs
 [ ] add automated testing, linting
