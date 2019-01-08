@@ -9,8 +9,9 @@ const {
 // convertPosition :: VFilePosition -> Position
 const convertPosition = ({line, column}) => Position.create(line - 1, column - 1);
 
-const parsePluginOptions = obj => 
-	typeof(obj) !== "undefined"
+const parsePluginOptions = obj => {
+
+	return typeof(obj) !== "undefined"
 		? JSON.parse(JSON.stringify(obj), (k, v) => {
 			if (typeof(v) == "string") {
 				if (v.startsWith("require://")) {
@@ -23,21 +24,25 @@ const parsePluginOptions = obj =>
 			return v;
 		})
 		: obj;
+}
 
-class One {
+class UnifiedEngineLangServerBase {
 	constructor(connection, documents, processor0) {
 		this.connection = connection;
 		this.documents = documents;
 		this.processor0 = processor0;
 		this.processor = processor0;
 
-		this.connection.onInitialize(_capabilities => ({
-			capabilities: {
-				textDocumentSync: this.documents.syncKind,
-			},
-		}));
+		connection.onInitialize(_capabilities => {
+			return {
+				capabilities: {
+					textDocumentSync: this.documents.syncKind,
+				}
+			};
 
-		this.documents.onDidChangeConcent(this.validate);
+		});
+
+		documents.onDidChangeContent(this.validate.bind(this));
 	}
 
 	setProcessor(x) {
@@ -49,7 +54,11 @@ class One {
 	configureWith(f) {
 		//TODO check if client supports configuration?
 		this.connection.onDidChangeConfiguration(change => {
+			this.connection.console.log("CONFIG CHANGED");
+			this.connection.console.log(JSON.stringify(f(change)));
 			this.setProcessor(this.createProcessor(f(change)));
+
+			this.connection.console.log("NUMBER OF FILES:" + this.documents.all().length);
 
 			this.documents.all().forEach(d => this.validate({document: d}))
 		});
@@ -59,7 +68,7 @@ class One {
 
 	// sets some callbacks and listening to the connection
 	start() {
-		this.documents.listen(connection);
+		this.documents.listen(this.connection);
 		this.connection.listen();
 	}
 
@@ -77,7 +86,14 @@ class One {
 
 	// {document: TextDocument}
 	validate({document}) {
-		this.processor.process(
+		this.connection.console.log("             ")
+		this.connection.console.log("             ")
+		this.connection.console.log("             ")
+		this.connection.console.log("VALIDATING!!!")
+		this.connection.console.log("             ")
+		this.connection.console.log("             ")
+		this.connection.console.log("             ")
+		return this.processor.process(
 			document.getText()
 		)
 			.then(vfile =>
@@ -89,16 +105,20 @@ class One {
 						},
 						/* message */ msg.reason,
 						/* severity */ LangServer.DiagnosticSeverity.Hint,
-						/* code */ code: msg.actual,
-						/* source */ source: msg.source
+						/* code */ msg.actual,
+						/* source */ msg.source
 					))
 			)
-			.then(diagnostics => this.connection.sendDiagnostics({
-				uri: document.uri,
-				diagnostics,
-			}))
+			.then(diagnostics => {
+				this.connection.sendDiagnostics({
+					uri: document.uri,
+					diagnostics,
+				});
+
+				return diagnostics;
+			})
 			.catch(this.connection.console.log);
 	}
 }
 
-module.exports = One;
+module.exports = UnifiedEngineLangServerBase;
