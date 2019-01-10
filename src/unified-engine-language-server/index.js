@@ -1,6 +1,5 @@
 const {readFileSync} = require("fs");
 const LangServer = require("vscode-languageserver");
-const VFile;
 const {
 	Diagnostic,
 	Position,
@@ -10,13 +9,13 @@ const {
 // convertPosition :: VFilePosition -> Position
 const convertPosition = ({line, column}) => Position.create(line - 1, column - 1);
 
-const parsePluginOptions = obj =>
+const parsePlugins = obj =>
 	typeof(obj) !== "undefined"
 		? JSON.parse(JSON.stringify(obj), (k, v) => {
 			if (typeof(v) == "string") {
 				if (v.startsWith("#")) {
 					return require(v.slice("#".length));
-				} else if (v.startsWith("file://")) {
+				} else if (v.startsWith("//")) {
 					return readFileSync(v.slice("//".length));
 				} else {
 					return v.trim();
@@ -70,13 +69,8 @@ class UnifiedEngineLangServerBase {
 	}
 
 	createProcessor(settings) {
-		let plugins = (settings.plugins.length >= 1
-			? settings.plugins
-			: []
-		);
-
-		return plugins.reduce(
-			(it, [name, options]) => it.use(require(name), parsePluginOptions(options)),
+		return parsePlugins(settings.plugins).reduce(
+			(it, [name, options]) => it.use(name, options),
 			this.processor0
 		);
 	}
