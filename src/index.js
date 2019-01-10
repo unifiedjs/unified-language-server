@@ -15,11 +15,6 @@ const DEFAULT_SETTINGS = {
 const connection = LangServer.createConnection(LangServer.ProposedFeatures.all);
 const documents = new LangServer.TextDocuments();
 
-
-documents.onDidChangeContent(change => {
-	connection.console.log("CONTENT CHANGED??");s
-});
-
 let server = new Base(connection, documents, retext);
 server.setProcessor(server.createProcessor(DEFAULT_SETTINGS));
 server.configureWith(change => 

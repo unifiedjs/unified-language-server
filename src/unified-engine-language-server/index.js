@@ -1,5 +1,6 @@
 const {readFileSync} = require("fs");
 const LangServer = require("vscode-languageserver");
+const VFile;
 const {
 	Diagnostic,
 	Position,
@@ -9,22 +10,22 @@ const {
 // convertPosition :: VFilePosition -> Position
 const convertPosition = ({line, column}) => Position.create(line - 1, column - 1);
 
-const parsePluginOptions = obj => {
-
-	return typeof(obj) !== "undefined"
+const parsePluginOptions = obj =>
+	typeof(obj) !== "undefined"
 		? JSON.parse(JSON.stringify(obj), (k, v) => {
 			if (typeof(v) == "string") {
-				if (v.startsWith("require://")) {
-					return require(v.slice("require://".length));
+				if (v.startsWith("#")) {
+					return require(v.slice("#".length));
 				} else if (v.startsWith("file://")) {
-					return readFileSync(v.slice("file://".length));
+					return readFileSync(v.slice("//".length));
+				} else {
+					return v.trim();
 				}
 			}
 
 			return v;
 		})
 		: obj;
-}
 
 class UnifiedEngineLangServerBase {
 	constructor(connection, documents, processor0) {
@@ -54,11 +55,7 @@ class UnifiedEngineLangServerBase {
 	configureWith(f) {
 		//TODO check if client supports configuration?
 		this.connection.onDidChangeConfiguration(change => {
-			this.connection.console.log("CONFIG CHANGED");
-			this.connection.console.log(JSON.stringify(f(change)));
 			this.setProcessor(this.createProcessor(f(change)));
-
-			this.connection.console.log("NUMBER OF FILES:" + this.documents.all().length);
 
 			this.documents.all().forEach(d => this.validate({document: d}))
 		});
@@ -80,19 +77,12 @@ class UnifiedEngineLangServerBase {
 
 		return plugins.reduce(
 			(it, [name, options]) => it.use(require(name), parsePluginOptions(options)),
-			this.processor0()
+			this.processor0
 		);
 	}
 
 	// {document: TextDocument}
 	validate({document}) {
-		this.connection.console.log("             ")
-		this.connection.console.log("             ")
-		this.connection.console.log("             ")
-		this.connection.console.log("VALIDATING!!!")
-		this.connection.console.log("             ")
-		this.connection.console.log("             ")
-		this.connection.console.log("             ")
 		return this.processor.process(
 			document.getText()
 		)

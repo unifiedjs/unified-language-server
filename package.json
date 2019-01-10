@@ -7,21 +7,47 @@
   "author": "aecepoglu",
   "license": "MIT",
   "bin": {
-    "retext-language-server": "./src/index.js"
+    "retext-language-server": "./dist/index.js"
+  },
+  "scripts": {
+    "babel": "babel --watch src/ --out-dir dist/"
   },
   "dependencies": {
     "dictionary-en-gb": "^2.0.0",
+    "parse-latin": "^4.1.1",
+    "remark-parse": "^6.0.3",
+    "remark-retext": "^3.1.2",
     "retext": "^6.0.1",
     "retext-profanities": "^4.6.0",
     "retext-spell": "^2.4.0",
+    "retext-stringify": "^2.0.2",
+    "unified": "^7.1.0",
     "vscode-languageserver": "^5.2.1"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.2.3",
+    "@babel/core": "^7.2.2",
+    "@babel/plugin-proposal-pipeline-operator": "^7.2.0",
+    "@babel/preset-env": "^7.2.3"
+  },
+  "babel": {
+    "plugins": [
+      [
+        "@babel/plugin-proposal-pipeline-operator",
+        {
+          "proposal": "minimal"
+        }
+      ]
+    ]
   },
   "keywords": [
     "LSP",
     "langserver",
-    "redex",
-    "spelling",
+    "language server",
+    "prose",
+    "retext",
     "readability",
-    "spell check"
+    "spell check",
+    "spelling"
   ]
 }

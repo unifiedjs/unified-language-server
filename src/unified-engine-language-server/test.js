@@ -9,7 +9,7 @@ const connection = {
 };
 
 const documents = {
-	onDidChangeConcent: () => {}
+	onDidChangeContent: () => {}
 };
 
 const x = new Base(connection, documents, require("retext"));
@@ -19,7 +19,7 @@ x.setProcessor(x.createProcessor({
 	]
 }));
 
-const TEXT = "hello world, how you doin shit face";
+const TEXT = "When I say shit, it should give a profanity error";
 
 x.validate({document: {getText: () => TEXT}})
 	.then(x => {
