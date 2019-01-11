@@ -26,7 +26,7 @@ const parsePlugins = obj =>
 		})
 		: obj;
 
-class UnifiedEngineLangServerBase {
+class UnifiedLangServerBase {
 	constructor(connection, documents, processor0) {
 		this.connection = connection;
 		this.documents = documents;
@@ -105,4 +105,4 @@ class UnifiedEngineLangServerBase {
 	}
 }
 
-module.exports = UnifiedEngineLangServerBase;
+module.exports = UnifiedLangServerBase;

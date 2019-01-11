@@ -25,6 +25,7 @@ function stringify() {
 }
 
 const withCommas = list => list.map(x => `"${x}"`).join(", ");
+
 const mapObj = (obj, f) =>
 	Object.keys(obj).reduce(
 		(acc, k) => ({
@@ -42,7 +43,10 @@ const getArg = (prefix, isOptional) =>
 		} else if (isOptional) {
 			return undefined;
 		} else {
-			throw new Error("Supply '--parser=X' where X is the name of parser you want to use; such as \"retext-latin\" or \"remarked\"");
+			throw new Error(
+				"Supply '--parser=X' where X is the name of parser you want to use;"
+				+ " such as \"retext-latin\" or \"remarked\""
+			);
 		}
 	});
 
@@ -81,21 +85,34 @@ const validateSettings = settings =>
 		if (retextWith !== undefined) {
 			if (typeof(retextWith) != "object") {
 				//TODO make error more verbose
-				throw new Error("retextWith must be undefined or an object with 2 fields: \"setting\" and \"mutator\".");
+				throw new Error(
+					"retextWith must be undefined or an object with 2 fields:"
+					+ "\"setting\" and \"mutator\"."
+				);
 			}
 			if (settings[retextWith.setting] === undefined) {
 				throw new Error(
-					"retextWith.setting should be the name of an entry in your settings. Candidates are: "
+					"retextWith.setting should be the name of an entry in your settings."
+					+ " Candidates are: "
 					+ withCommas(Object.keys(settings))
 				);
 			}
 			if (!Array.isArray(settings[retextWith.mutator]) !== true) {
-				throw new Error("retextWith.mutator should be a plugin definition (like those in \"plugins\"");
+				throw new Error(
+					"retextWith.mutator should be a plugin definition"
+					+ " (like those in \"plugins\")"
+				);
 			}
 		}
 
 		return {retextWith, plugins};
 	});
+
+const validateAndProcessSettings = s =>
+	(s || ALL_SETTINGS)
+	|> validateSettings
+	|> populateRetexts
+	|> (_ => _[parserName])
 
 
 const parserName = getArg("--parser=")
@@ -112,20 +129,14 @@ const processor0 = require(parserName)
 		}
 	})
 	|> (_ => unified().use(_).use(stringify).freeze());
-const SETTINGS = ALL_SETTINGS
-	|> validateSettings
-	|> populateRetexts
-	|> (_ => _[parserName]);
+const SETTINGS = validateAndProcessSettings(ALL_SETTINGS);
 
 const connection = LangServer.createConnection(LangServer.ProposedFeatures.all);
 const documents = new LangServer.TextDocuments();
 
 let server = new Base(connection, documents, processor0());
 server.setProcessor(server.createProcessor(SETTINGS));
-server.configureWith(change =>
-	change.settings
-	|> validateSettings
-	|> appendRetexts
-	|> (_ => _[parserName])
-);
+//server.configureWith(change =>
+//	validateAndProcessSettings(change.settings["unified-language-server"])
+//);
 server.start();

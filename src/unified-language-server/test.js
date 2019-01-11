@@ -21,12 +21,7 @@ x.setProcessor(x.createProcessor({
 
 const TEXT = "When I say shit, it should give a profanity error";
 
+const print = prefix => _ => console.log(prefix, _);
+
 x.validate({document: {getText: () => TEXT}})
-	.then(x => {
-		console.log("success");
-		console.log(x);
-	})
-	.catch(err => {
-		console.log("error");
-		console.log(err);
-	});
+	.then(print("success"), print("error"));

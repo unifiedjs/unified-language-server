@@ -3,12 +3,12 @@
 const LangServer = require("vscode-languageserver");
 const retext = require("retext");
 
-const Base = require("./unified-engine-language-server");
+const Base = require("./unified-language-server");
 
 const DEFAULT_SETTINGS = {
 	plugins: [
-		["retext-profanities"],
-		["retext-spell", "require://dictionary-en-gb"],
+		["#retext-profanities"],
+		["#retext-spell", "#dictionary-en-gb"],
 	],
 };
 
