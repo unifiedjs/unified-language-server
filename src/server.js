@@ -4,17 +4,18 @@ const LangServer = require("vscode-languageserver");
 const unified = require("unified");
 
 const ALL_SETTINGS = {
-	"remark-english": {
+	"retext-english": {
 		plugins: [
 			["#retext-profanities"],
+			["#retext-spell", "#dictionary-en-gb"]
 		],
 	},
 	"remark-parse": {
 		plugins: [
-			["#remark-retext", "#parse-latin"],
+			["#remark-preset-lint-markdown-style-guide"]
 		],
-		retextWith: {
-			setting: "remark-english",
+		checkTextWith: {
+			setting: "retext-english",
 			mutator: ["#remark-retext", "#parse-latin"],
 		}
 	},
@@ -35,38 +36,38 @@ const mapObj = (obj, f) =>
 		{}
 	);
 
-const getArg = (prefix, isOptional) =>
-	process.argv.slice(2).find(_ => _.startsWith(prefix))
-	|> (_ => {
-		if (_) {
-			return _.slice(prefix.length);
-		} else if (isOptional) {
-			return undefined;
-		} else {
-			throw new Error(
-				"Supply '--parser=X' where X is the name of parser you want to use;"
-				+ " such as \"retext-latin\" or \"remarked\""
-			);
-		}
-	});
+const getArg = (prefix, isOptional) => {
+	let arg = process.argv.slice(2).find(_ => _.startsWith(prefix));
 
-const populateRetexts = settings =>
-	mapObj(settings, ({ retextWith, plugins, ...rest }) => ({
+	if (_) {
+		return _.slice(prefix.length);
+	} else if (isOptional) {
+		return undefined;
+	} else {
+		throw new Error(
+			"Supply '--parser=X' where X is the name of parser you want to use;"
+			+ " such as \"retext-latin\" or \"remarked\""
+		);
+	}
+};
+
+const populateTextPlugins = settings =>
+	mapObj(settings, ({ checkTextWith, plugins, ...rest }) => ({
 		plugins: [
 			...plugins,
-			...(retextWith
-					? [
-						retextWith.mutator,
-						...settings[retextWith.setting].plugins,
-					]
-					: []
+			...(checkTextWith
+				? [
+					checkTextWith.mutator,
+					...settings[checkTextWith.setting].plugins,
+				]
+				: []
 			)
 		],
 		...rest,
 	}));
 
 const validateSettings = settings =>
-	mapObj(settings, ({retextWith, plugins, ...rest}, name) => {
+	mapObj(settings, ({checkTextWith, plugins, ...rest}, name) => {
 		if (Object.keys(rest).length > 0) {
 			console.warn(
 				"The keys: "
@@ -82,61 +83,78 @@ const validateSettings = settings =>
 			throw new Error(`every item in ${name}.plugins should be a list.`);
 		}
 	
-		if (retextWith !== undefined) {
-			if (typeof(retextWith) != "object") {
+		if (checkTextWith !== undefined) {
+			if (typeof(checkTextWith) != "object") {
 				//TODO make error more verbose
 				throw new Error(
-					"retextWith must be undefined or an object with 2 fields:"
+					"checkTextWith must be undefined or an object with 2 fields:"
 					+ "\"setting\" and \"mutator\"."
 				);
 			}
-			if (settings[retextWith.setting] === undefined) {
+			if (settings[checkTextWith.setting] === undefined) {
 				throw new Error(
-					"retextWith.setting should be the name of an entry in your settings."
+					"checkTextWith.setting should be the name of an entry in your settings."
 					+ " Candidates are: "
 					+ withCommas(Object.keys(settings))
 				);
 			}
-			if (!Array.isArray(settings[retextWith.mutator]) !== true) {
+			if (!Array.isArray(settings[checkTextWith.mutator]) !== true) {
 				throw new Error(
-					"retextWith.mutator should be a plugin definition"
+					"checkTextWith.mutator should be a plugin definition"
 					+ " (like those in \"plugins\")"
 				);
 			}
 		}
 
-		return {retextWith, plugins};
+		return {checkTextWith, plugins};
 	});
 
-const validateAndProcessSettings = s =>
-	(s || ALL_SETTINGS)
-	|> validateSettings
-	|> populateRetexts
-	|> (_ => _[parserName])
+const validateAndProcessSettings = s => {
+	let resp = (
+		populateTextPlugins(
+			validateSettings(
+				Object.assign({}, ALL_SETTINGS, s)
+			)
+		)
+	)[parserName]
 
+	if (resp) {
+		return resp;
+	} else {
+		throw new Error(`I don't know what the settings for ${parserName} is`);
+	}
+};
 
 const parserName = getArg("--parser=")
-const processor0 = require(parserName)
-	|> (_ => {
-		if (_.Parser === undefined) {
-			throw new Error(
-				`The parser you have supplied (${parserName}) is not a valid unifiedJS parser.\n`
-				+ "The module needs to have a \"Parser\" method as described here: "
-				+ "https://github.com/unifiedjs/unified#processorparser"
-			);
-		} else {
-			return _;
-		}
-	})
-	|> (_ => unified().use(_).use(stringify).freeze());
-const SETTINGS = validateAndProcessSettings(ALL_SETTINGS);
+const processor0 = (function() {
+	let parser = require(parserName);
+
+	if (parser.Parser === undefined) {
+		throw new Error(
+			`The parser you have supplied (${parserName}) is not a valid unifiedJS parser.\n`
+			+ "The module needs to have a \"Parser\" method as described here: "
+			+ "https://github.com/unifiedjs/unified#processorparser"
+		);
+	}
+
+	return unified()
+		.use(parser)
+		.use(stringify)
+		.freeze();
+})();
 
 const connection = LangServer.createConnection(LangServer.ProposedFeatures.all);
 const documents = new LangServer.TextDocuments();
 
 let server = new Base(connection, documents, processor0());
-server.setProcessor(server.createProcessor(SETTINGS));
-//server.configureWith(change =>
-//	validateAndProcessSettings(change.settings["unified-language-server"])
-//);
+server.setProcessor(
+	server.createProcessor(
+		validateAndProcessSettings(undefined)
+	)
+);
+server.configureWith(change =>
+	validateAndProcessSettings(
+		change.settings["unified-language-server"]
+	)
+);
 server.start();

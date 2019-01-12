@@ -42,7 +42,7 @@ class UnifiedLangServerBase {
 
 		});
 
-		documents.onDidChangeContent(this.validate.bind(this));
+		documents.onDidChangeContent(_ => this.validate(_));
 	}
 
 	setProcessor(x) {
@@ -69,9 +69,10 @@ class UnifiedLangServerBase {
 	}
 
 	createProcessor(settings) {
+		//this._todo_settings = settings.plugins;
 		return parsePlugins(settings.plugins).reduce(
 			(it, [name, options]) => it.use(name, options),
-			this.processor0
+			this.processor0()
 		);
 	}
 
@@ -92,6 +93,7 @@ class UnifiedLangServerBase {
 						/* code */ msg.actual,
 						/* source */ msg.source
 					))
+					.sort(_ => _.range.start.line)
 			)
 			.then(diagnostics => {
 				this.connection.sendDiagnostics({
