@@ -1,16 +1,13 @@
 {
-  "name": "retext-language-server",
-  "version": "0.1.1",
+  "name": "unified-language-server",
+  "version": "0.2.0",
   "description": "A language server for spoken languages using retext",
   "homepage": "https://github.com/aecepoglu/retext-language-server",
   "main": "src/index.js",
   "author": "aecepoglu",
   "license": "MIT",
   "bin": {
-    "retext-language-server": "./dist/index.js"
-  },
-  "scripts": {
-    "babel": "babel --watch src/ --out-dir dist/"
+    "unified-language-server": "./src/server.js"
   },
   "dependencies": {
     "dictionary-en-gb": "^2.0.0",
@@ -18,36 +15,21 @@
     "remark-parse": "^6.0.3",
     "remark-retext": "^3.1.2",
     "retext": "^6.0.1",
-    "retext-profanities": "^4.6.0",
+    "retext-english": "^3.0.2",
     "retext-spell": "^2.4.0",
-    "retext-stringify": "^2.0.2",
     "unified": "^7.1.0",
     "vscode-languageserver": "^5.2.1"
-  },
-  "devDependencies": {
-    "@babel/cli": "^7.2.3",
-    "@babel/core": "^7.2.2",
-    "@babel/plugin-proposal-pipeline-operator": "^7.2.0",
-    "@babel/preset-env": "^7.2.3"
-  },
-  "babel": {
-    "plugins": [
-      [
-        "@babel/plugin-proposal-pipeline-operator",
-        {
-          "proposal": "minimal"
-        }
-      ]
-    ]
   },
   "keywords": [
     "LSP",
     "langserver",
     "language server",
     "prose",
-    "retext",
     "readability",
+    "retext",
     "spell check",
-    "spelling"
+    "spelling",
+    "unifiedJS",
+    "unified"
   ]
 }
