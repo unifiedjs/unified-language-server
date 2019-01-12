@@ -2,7 +2,7 @@
 
 A [language server](http://langserver.org) for text.
 
-[!demo gif](https://media.giphy.com/media/8BlBVMzDbmGY6ORBeL/giphy.gif)
+![demo gif](https://media.giphy.com/media/8BlBVMzDbmGY6ORBeL/giphy.gif)
 
 It supports all formats [Unified.JS](https://unified.js.org) can understand:
 
