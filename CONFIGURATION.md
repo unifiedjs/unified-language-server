@@ -1,6 +1,6 @@
 # Configuration
 
-The default settings are **roughly**[(see the exact configuration)][Default Settings] equal to:
+The default settings are **roughly**[(see the exact configuration)](#default-settings) equal to:
 
 ```json
 {
@@ -66,7 +66,7 @@ If I wanted to use `retext-redundant-acronyms`, `retext-overuse`, `retext-intens
 	"unified-language-server": {
 		"retext-english": {
 			"plugins": [
-				["#retext-redundant-acronyms],
+				["#retext-redundant-acronyms"],
 				["#retext-overuse"],
 				["#retext-intensify"],
 				["#retext-repeated-words"],
@@ -77,7 +77,7 @@ If I wanted to use `retext-redundant-acronyms`, `retext-overuse`, `retext-intens
 			"plugins": [
 				["#remark-preset-lint-markdown-style-guide"],
 				["#remark-retext", "#parse-latin"],
-				["#retext-redundant-acronyms],
+				["#retext-redundant-acronyms"],
 				["#retext-overuse"],
 				["#retext-intensify"],
 				["#retext-repeated-words"],
@@ -95,7 +95,7 @@ If I wanted to use `retext-redundant-acronyms`, `retext-overuse`, `retext-intens
 	"unified-language-server": {
 		"retext-english": {
 			"plugins": [
-				["#retext-redundant-acronyms],
+				["#retext-redundant-acronyms"],
 				["#retext-overuse"],
 				["#retext-intensify"],
 				["#retext-repeated-words"],
