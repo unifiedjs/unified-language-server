@@ -4,7 +4,8 @@ const {
 	Diagnostic,
 	Position,
 	//TextDocument,
-} = require("vscode-languageserver-types");
+	TextDocumentSyncKind,
+} = require("vscode-languageserver-protocol");
 
 // convertPosition :: VFilePosition -> Position
 const convertPosition = ({line, column}) => Position.create(line - 1, column - 1);
@@ -28,35 +29,32 @@ const parsePlugins = obj =>
 
 class UnifiedLangServerBase {
 	constructor(connection, documents, processor0) {
-		this.connection = connection;
-		this.documents = documents;
-		this.processor0 = processor0;
-		this.processor = processor0;
+		this._connection = connection;
+		this._documents = documents;
+		this._processor0 = processor0;
+		this._processor = processor0;
 
-		connection.onInitialize(_capabilities => {
-			return {
-				capabilities: {
-					textDocumentSync: this.documents.syncKind,
-				}
-			};
-
-		});
+		connection.onInitialize(_capabilities => ({
+			capabilities: {
+				textDocumentSync: TextDocumentSyncKind.Full,
+			}
+		}));
 
 		documents.onDidChangeContent(_ => this.validate(_));
 	}
 
 	setProcessor(x) {
-		this.processor = x;
+		this._processor = x;
 
 		return this;
 	}
 
 	configureWith(f) {
 		//TODO check if client supports configuration?
-		this.connection.onDidChangeConfiguration(change => {
+		this._connection.onDidChangeConfiguration(change => {
 			this.setProcessor(this.createProcessor(f(change)));
 
-			this.documents.all().forEach(d => this.validate({document: d}))
+			this._documents.all().forEach(d => this.validate({document: d}))
 		});
 
 		return this;
@@ -64,21 +62,20 @@ class UnifiedLangServerBase {
 
 	// sets some callbacks and listening to the connection
 	start() {
-		this.documents.listen(this.connection);
-		this.connection.listen();
+		this._documents.listen(this._connection);
+		this._connection.listen();
 	}
 
 	createProcessor(settings) {
-		//this._todo_settings = settings.plugins;
 		return parsePlugins(settings.plugins).reduce(
 			(it, [name, options]) => it.use(name, options),
-			this.processor0()
+			this._processor0()
 		);
 	}
 
 	// {document: TextDocument}
 	validate({document}) {
-		return this.processor.process(
+		return this._processor.process(
 			document.getText()
 		)
 			.then(vfile =>
@@ -96,14 +93,14 @@ class UnifiedLangServerBase {
 					.sort(_ => _.range.start.line)
 			)
 			.then(diagnostics => {
-				this.connection.sendDiagnostics({
+				this._connection.sendDiagnostics({
 					uri: document.uri,
 					diagnostics,
 				});
 
 				return diagnostics;
 			})
-			.catch(this.connection.console.log);
+			.catch(this._connection.console.log);
 	}
 }
 
