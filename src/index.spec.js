@@ -1,18 +1,22 @@
 const Base = require("./index");
-const Test = require("tape");
+const Test = require("tape"); //TODO try 'ava' instead
 const unified = require("unified");
 const {
 	TextDocumentSyncKind,
 	DiagnosticSeverity,
 } = require("vscode-languageserver-protocol");
 const {spy} = require("sinon");
+const VMessage = require("vfile-message");
 
 const parser = require("retext-english");
 function compiler() {
 	this.Compiler = () => "compiler's output";
 }
+const msgPushingAttacher = vMsg => options => (tree, file) => {
+	file.messages.push(vMsg);
+};
 
-const processor = unified()
+const textProcessor = unified()
 	.use(parser)
 	.use(compiler)
 	.freeze();
@@ -61,7 +65,7 @@ Test("the constructor", t => {
 	let connection = createMockConnection();
 	let documents = createMockDocuments();
 
-	let base = new Base(connection, documents, processor);
+	let base = new Base(connection, documents, textProcessor);
 
 	t.ok(connection.listen.notCalled, "listen() shouldn't be done implicitly");
 	t.ok(documents.listen.notCalled, "listen() shouldn't be done implicitly");
@@ -77,37 +81,137 @@ Test("the constructor", t => {
 	);
 });
 
-Test.skip("setProcess()", async t => {
+Test("setProcessor()", async t => {
 	t.plan(2);
-	/* TODO
-	 * the process methods need to return vfiles that have messages
-	 */
-	const p1 = {process: () => Promise.resolve("p1 resolution")};
-	const p2 = {process: () => Promise.resolve("p2 resolution")};
+
+	const plugin1 = msgPushingAttacher(new VMessage(
+		"msg one",
+		{
+			start: {line: 1, column: 5},
+			end: {line: 2, column: 10},
+		},
+		"attacher1:rule1"
+	));
+	const plugin2 = msgPushingAttacher(new VMessage(
+		"msg two",
+		{
+			start: {line: 3, column: 6},
+			end: {line: 4, column: 8},
+		},
+		"attacher2:rule1"
+	));
+
+	const processor1 = textProcessor().use(plugin1);
+	const processor2 = textProcessor().use(plugin2);
 
 	let base = new Base(
 		createMockConnection(),
 		createMockDocuments(),
-		p1
+		processor1
 	);
 
-	t.equal(
-		await(base.validate({document: createMockDocument("")})),
-		"p1 resolution"
+	let doc = {
+		document: createMockDocument("", {uri: "uri-01"})
+	};
+
+	t.deepEqual(
+		await(base.validate(doc)),
+		[{
+			range: {
+				start: { line: 0, character: 4 },
+				end: { line: 1, character: 9 },
+			},
+			message: "msg one",
+			severity: DiagnosticSeverity.Hint,
+			source: "attacher1",
+		}],
 	);
 
-	base.setProcessor(p2);
+	base.setProcessor(processor2);
 
-	t.equal(
-		await(base.validate({document: createMockDocument("")})),
-		"p2 resolution"
+	t.deepEqual(
+		await(base.validate(doc)),
+		[{
+			range: {
+				start: { line: 2, character: 5 },
+				end: { line: 3, character: 7 },
+			},
+			message: "msg two",
+			severity: DiagnosticSeverity.Hint,
+			source: "attacher2",
+		}],
 	);
 });
 
-Test.skip("createProcessor()", t => {
-	// given settings, does it create a unified processor?
-	// does it recognize plugins and their options?
-	// does it parse "#module" syntax and "//file" syntax
+Test("createProcessor()", t => {
+	let connection = createMockConnection();
+	let documents = createMockDocuments();
+	let TEXT = [
+		"spellinggg misstakes alll overr",
+		"and carrot is spelled correctly but my personal dictionary dislikes it",
+	].join("\n");
+
+	let base = new Base(connection, documents, textProcessor);
+
+	[
+		["empty settings", {}],
+		["nonexistent modules", {
+			plugins: [
+				["#some-unknown-module-by-aecepoglu"]
+			]
+		}],
+		["nonexistent file", {
+			plugins: [
+				["//i-bet-this-file-doesnt-exist.txt"]
+			]
+		}]
+	].forEach(([description, settings]) => {
+		t.test(description, st => {
+			st.plan(1);
+			st.throws(() => {
+				base.createProcessor({});
+			}, `error thrown for ${description}`);
+		});
+	});
+
+	t.test("defining modules with '#'", async st => {
+		st.plan(1);
+
+		let myProcessor = base.createProcessor({
+			plugins: [
+				["#retext-spell", "#dictionary-en-gb"]
+			]
+		});
+
+		let abc = await(myProcessor.process(TEXT))
+		st.deepEqual(
+			abc
+				.messages
+				.map(_ => _.actual),
+			["spellinggg", "misstakes", "alll", "overr"]
+		);
+	});
+
+	t.test("defining files with '//'", async st => {
+		st.plan(1);
+
+		let myProcessor = base.createProcessor({
+			plugins: [
+				["#retext-spell", {
+					dictionary: "#dictionary-en-gb",
+					personal: "//./sample-dict.txt",
+				}]
+			]
+		});
+
+		let abc = await(myProcessor.process(TEXT))
+		st.deepEqual(
+			abc
+				.messages
+				.map(_ => _.actual),
+			["spellinggg", "misstakes", "alll", "overr", "carrot"]
+		);
+	});
 });
 
 Test("start() listens to connections", t => {
@@ -116,7 +220,7 @@ Test("start() listens to connections", t => {
 	let connection = createMockConnection();
 	let documents = createMockDocuments();
 
-	let base = new Base(connection, documents, processor);
+	let base = new Base(connection, documents, textProcessor);
 	
 	base.start();
 
@@ -133,7 +237,7 @@ Test("configureWith() is used to listen to changes in settings and updating the 
 		createMockDocument("proper text.", {uri: "uri-02"}),
 	]);
 
-	let base = new Base(connection, documents, processor)
+	let base = new Base(connection, documents, textProcessor)
 		.configureWith(settings => settings.some.obscure.path);
 
 	connection.onDidChangeConfiguration.args[0][0] ({some: {obscure: {path:
@@ -180,7 +284,7 @@ Test("the cb given to configureWith() throws an error", t => {
 		createMockDocument("proper text.", {uri: "uri-02"}),
 	]);
 
-	let base = new Base(connection, documents, processor)
+	let base = new Base(connection, documents, textProcessor)
 		.configureWith(() => {
 			throw new Error("the error thrown by the configuration filter function");
 		});
@@ -191,7 +295,7 @@ Test("the cb given to configureWith() throws an error", t => {
 
 	t.ok(
 		connection.console.log.calledWith(
-			"the error thrown by the configuration filter function"
+			"Error: the error thrown by the configuration filter function"
 		),
 		"error must be logged"
 	);

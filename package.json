@@ -9,6 +9,9 @@
   "bin": {
     "unified-language-server": "./src/server.js"
   },
+  "scripts": {
+    "test": "tape src/**/*.spec.js"
+  },
   "dependencies": {
     "dictionary-en-gb": "^2.0.0",
     "parse-latin": "^4.1.1",

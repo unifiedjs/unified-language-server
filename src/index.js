@@ -17,7 +17,7 @@ const parsePlugins = obj =>
 				if (v.startsWith("#")) {
 					return require(v.slice("#".length));
 				} else if (v.startsWith("//")) {
-					return readFileSync(v.slice("//".length));
+					return readFileSync(v.slice("//".length), "utf8");
 				} else {
 					return v.trim();
 				}
@@ -52,9 +52,13 @@ class UnifiedLangServerBase {
 	configureWith(f) {
 		//TODO check if client supports configuration?
 		this._connection.onDidChangeConfiguration(change => {
-			this.setProcessor(this.createProcessor(f(change)));
+			try {
+				this.setProcessor(this.createProcessor(f(change)));
 
-			this._documents.all().forEach(d => this.validate({document: d}))
+				this._documents.all().forEach(d => this.validate({document: d}))
+			} catch(err) {
+				this.log(err);
+			}
 		});
 
 		return this;
@@ -68,7 +72,7 @@ class UnifiedLangServerBase {
 
 	createProcessor(settings) {
 		return parsePlugins(settings.plugins).reduce(
-			(it, [name, options]) => it.use(name, options),
+			(it, [plugin, options]) => it.use(plugin, options),
 			this._processor0()
 		);
 	}
@@ -100,7 +104,15 @@ class UnifiedLangServerBase {
 
 				return diagnostics;
 			})
-			.catch(this._connection.console.log);
+			.catch(this.log);
+	}
+
+	log(x) {
+		this._connection.console.log(
+			x.toString
+				? x.toString()
+				: JSON.stringify(x)
+		);
 	}
 }
 
