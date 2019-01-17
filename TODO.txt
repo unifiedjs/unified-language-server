@@ -3,7 +3,9 @@
 # [o] done
 ############
 
+[o] unified-engine-language-server
+[ ] automated testing
 [ ] support incremental changes
 [ ] add documentation for more editors/IDEs
 [ ] add automated testing, linting
-[ ] decide what to do with markdown, latex etc: whether this server should check them or if they should have their own servers
+[o] decide what to do with markdown, latex etc: whether this server should check them or if they should have their own servers. (Answer: I have decided to keep the implementation simple. Language-servers are responsible for spellchecking themselves.)

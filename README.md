@@ -1,109 +1,86 @@
-retext-language-server
-======================
+# Unified-Language-Server
 
-A [Language-server-protocol](https://langserver.org) for [retext](https://github.com/retextjs/retext).
+A [language server](http://langserver.org) for text.
 
-![gif demo](https://media.giphy.com/media/46huoybWBhbMCi8M5Q/giphy.gif)
+![demo gif](https://media.giphy.com/media/8BlBVMzDbmGY6ORBeL/giphy.gif)
 
-# Installation
+It supports all formats [Unified.JS](https://unified.js.org) can understand:
 
-First, install the server
+- plain text
+- markdown
+- HTML
+- and [other syntax](https://github.com/unifiedjs/awesome#syntaxes)
 
+And it provides:
+
+- prose and syntax checking
+- formatting *(in progress)*
+
+## Install
+
+```bash
+yarn global add unified-language-server
+# OR
+npm install -g unified-language-server
 ```
-yarn global add retext-language-server
-#OR
-npm install -g retext-language-server
-```
 
-Next, configure the client (your text editor) to use `retext-language-server --stdio` for `text` files.  
+And configure your text editor to use:
 
-For NeoVim I do:
+- `unified-language-server --parser=retext-english --stdio` for `text`
+- `unified-language-server --parser=remark-parse --stdio` for `markdown`
 
-```
+### For NeoVim
+
+```vim
+"inside .vimrc
 let g:LanguageClient_serverCommands = {
-\ 'text': ['~/.yarn/bin/retext-language-server', '--stdio'],
+\ 'text': ['unified-language-server', '--parser=retext-english', '--stdio'],
+\ 'markdown': ['unified-language-server', '--parser=remark-parse', '--stdio'],
 \ }
 ```
 
-### Configuration
+And you're ready to go!  
 
-*retext-language-server* is compatible with [all retext plugins](https://github.com/retextjs/retext/blob/master/doc/plugins.md).
+## Configuration
 
-The default configuration is:
-
-```json
-{
-	"plugins": [
-		["profanities"],
-		["spell", "require://dictionary-en-gb"],
-	]
-}
-```
-
-Which means `retext-profanities` and `retext-spell` plugins are used. `retext-spell` is given an option: the npm module named `dictionary-en-gb`.npmjs.com/package/dictionary-en-gb).
-
-
-If you want to use two plugins named `retext-xyz` and `retext-abc` then use the settings:
+The server has default configurations for `remark-parse`(for  markdown) and `remark-english`(for text):
 
 ```json
 {
-	"plugins": [
-		["xyz"],
-		["abc"]
-	]
-}
-```
-
-If you want to pass options to a plugin, give it as the second argument after the name of the plugin. In the example below an object is passed, but it could have been a list, a text or a number.
-
-```json
-{
-	"plugins": [
-		["xyz"],
-		["abc", {
-			"anOption": "something",
-			"x": false,
-			"y": 5,
-			"z": "require://name-of-an-npm-module-to-require",
-			"k": "file:///absolute/path/to/file/to/read"
-		}]
-	]
-}
-```
-
-There are 2 special cases:
-
-* `"require://"`: if a value starts with "require://" then the module with that name will be `require`d and passed as the argument.
-
-   `require://a` will perform `require("a")` and use its value.
-
-* `"file://"`: if a value starts with "file://" then the file at that absolute path will be read
-
-   `file:///home/aecepoglu/file1.json` uses the file at `/home/aecepoglu/file1.json` *(note that it is `file:///...` and not `file://`. In the latter case relative paths would be used.)*
-
-
-##### Sample server settings for NeoVim:
-
-.vim/settings.json:
-
-```json
-{
-	"retext-language-server": {
+	"retext-english": {
 		"plugins": [
-			["profanities"],
-			["simplify"],
-			["redundand-acronyms"],
-			["equality", {
-				"ignore": ["special"]
-			}],
-			["spell", "require://dictionary-en-gb"]
+			["#retext-profanities"],
+			["#retext-spell", "#dictionary-en-gb"]
+		],
+	},
+	"remark-parse": {
+		"plugins": [
+			["#remark-preset-lint-markdown-style-guide"]
+			["#remark-retext", "#parse-latin"],
+			["#retext-profanities"],
+			["#retext-spell", "#dictionary-en-gb"]
 		]
 	}
 }
 ```
 
-### Relevant links
+So, for a markdown file:
 
-* [A introduction to unified (the basis for retext)](https://unified.js.org/#guides)
-* [retext github page](https://github.com/retextjs/retext)
-* [dictionaries](https://github.com/wooorm/dictionaries) to use with [retext-spell](https://github.com/retextjs/retext-spell)
+1. because we launched it with `--parser=remark-parse`, it finds the setting with the same name
+2. applies all the plugins:
+  1. `remark-preset-lint-markdown-style-guide` checks for markdown usage
+  2. `remark-retext` extracts the texts from markdown
+  3. `retext-profanities` about usage of profanity words
+  4. `retext-spell` does spellcheck
+
+More detail on configuration is available at [CONFIGURATION.md](CONFIGURATION.md)
+
+## Contributing
+
+To contribute, please:
+
+- Report any and all issues that you have
+- In your issues make sure to mention:
+  - what version of the server you are running
+  - your configurations (if you have any)
+
