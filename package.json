@@ -1,6 +1,6 @@
 {
   "name": "unified-language-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A language server for spoken languages using retext",
   "homepage": "https://github.com/aecepoglu/retext-language-server",
   "main": "src/index.js",
