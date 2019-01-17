@@ -1,4 +1,4 @@
-#!/usr/bin/node
+#!/usr/bin/env node
 const Base = require("./index");
 const LangServer = require("vscode-languageserver");
 const unified = require("unified");
@@ -6,7 +6,6 @@ const unified = require("unified");
 const ALL_SETTINGS = {
 	"retext-english": {
 		plugins: [
-			["#retext-profanities"],
 			["#retext-spell", "#dictionary-en-gb"]
 		],
 	},
@@ -39,14 +38,13 @@ const mapObj = (obj, f) =>
 const getArg = (prefix, isOptional) => {
 	let arg = process.argv.slice(2).find(_ => _.startsWith(prefix));
 
-	if (_) {
-		return _.slice(prefix.length);
+	if (arg) {
+		return arg.slice(prefix.length);
 	} else if (isOptional) {
 		return undefined;
 	} else {
 		throw new Error(
-			"Supply '--parser=X' where X is the name of parser you want to use;"
-			+ " such as \"retext-latin\" or \"remarked\""
+			`Command line argument "${prefix}..." couldn't be found`
 		);
 	}
 };

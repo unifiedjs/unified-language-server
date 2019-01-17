@@ -16,6 +16,7 @@
     "dictionary-en-gb": "^2.0.0",
     "parse-latin": "^4.1.1",
     "remark-parse": "^6.0.3",
+    "remark-preset-lint-markdown-style-guide": "^2.1.2",
     "remark-retext": "^3.1.2",
     "retext": "^6.0.1",
     "retext-english": "^3.0.2",
