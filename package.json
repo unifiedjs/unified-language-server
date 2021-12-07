@@ -2,27 +2,51 @@
   "name": "unified-language-server",
   "version": "0.3.0",
   "description": "A language server for spoken languages using retext",
-  "homepage": "https://github.com/aecepoglu/retext-language-server",
+  "homepage": "https://github.com/unifiedjs/unified-language-server",
+  "repository": "unifiedjs/unified-language-server",
+  "bugs": "https://github.com/unifiedjs/unified-language-serve/issues",
   "main": "src/index.js",
   "author": "aecepoglu",
   "license": "MIT",
-  "bin": {
-    "unified-language-server": "./src/server.js"
-  },
+  "sideEffects": false,
+  "bin": "unified-language-server",
   "scripts": {
-    "test": "tape src/**/*.spec.js"
+    "format": "remark . -qfo && prettier . -w --loglevel warn && xo --fix",
+    "test-coverage": "tape src/**/*.spec.js",
+    "test": "npm run format && npm run test-coverage"
+  },
+  "prettier": {
+    "tabWidth": 2,
+    "useTabs": false,
+    "singleQuote": true,
+    "bracketSpacing": false,
+    "semi": false,
+    "trailingComma": "none"
+  },
+  "xo": {
+    "prettier": true,
+    "rules": {
+      "no-new": "off",
+      "no-warning-comments": "off",
+      "unicorn/prefer-module": "off"
+    }
+  },
+  "remarkConfig": {
+    "plugins": [
+      "preset-wooorm"
+    ]
   },
   "dependencies": {
     "dictionary-en-gb": "^2.0.0",
-    "parse-latin": "^4.1.1",
-    "remark-parse": "^6.0.3",
-    "remark-preset-lint-markdown-style-guide": "^2.1.2",
-    "remark-retext": "^3.1.2",
-    "retext": "^6.0.1",
-    "retext-english": "^3.0.2",
-    "retext-spell": "^2.4.0",
-    "unified": "^7.1.0",
-    "vscode-languageserver": "^5.2.1"
+    "parse-latin": "^4.0.0",
+    "remark-parse": "^6.0.0",
+    "remark-preset-lint-markdown-style-guide": "^2.0.0",
+    "remark-retext": "^3.0.0",
+    "retext": "^6.0.0",
+    "retext-english": "^3.0.0",
+    "retext-spell": "^2.0.0",
+    "unified": "^7.0.0",
+    "vscode-languageserver": "^5.0.0"
   },
   "keywords": [
     "LSP",
@@ -37,7 +61,12 @@
     "unified"
   ],
   "devDependencies": {
-    "sinon": "^7.2.2",
-    "tape": "^4.9.2"
+    "prettier": "^2.0.0",
+    "remark-cli": "^10.0.1",
+    "remark-preset-wooorm": "^9.0.0",
+    "sinon": "^7.0.0",
+    "tape": "^4.0.0",
+    "vfile-message": "^1.0.0",
+    "xo": "^0.47.0"
   }
 }
