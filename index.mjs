@@ -11,7 +11,8 @@ import {
   ProposedFeatures,
   Range,
   TextDocuments,
-  TextDocumentSyncKind
+  TextDocumentSyncKind,
+  TextEdit
 } from 'vscode-languageserver/node.js'
 import {TextDocument} from 'vscode-languageserver-textdocument'
 
@@ -93,7 +94,7 @@ function lspDocumentToVfile(document) {
 
 /**
  * @param {import('vscode-languageserver').Connection} connection
- * @param {import('vscode-languageserver').TextDocuments<TextDocument>} documents
+ * @param {TextDocuments<TextDocument>} documents
  * @param {import('unified-engine').Options['plugins']} plugins
  * @param {string} prefix
  */
@@ -103,53 +104,86 @@ function initUnifiedLanguageServer(connection, documents, prefix, plugins) {
    * resulting messages as diagnostics.
    *
    * @param {TextDocument[]} textDocuments
+   * @param {boolean} alwaysStringify
+   * @returns {Promise<VFile[]>}
    */
-  function processDocuments(...textDocuments) {
-    engine(
-      {
-        files: textDocuments.map((document) => lspDocumentToVfile(document)),
-        ignoreName: '.' + prefix + 'ignore',
-        packageField: prefix + 'Config',
-        pluginPrefix: prefix,
-        plugins,
-        processor: unified(),
-        rcName: '.' + prefix + 'rc',
-        silentlyIgnore: true
-      },
-      (error, code, context) => {
-        if (error) {
-          console.error(error)
+  function processDocuments(textDocuments, alwaysStringify = false) {
+    return new Promise((resolve, reject) => {
+      engine(
+        {
+          alwaysStringify,
+          files: textDocuments.map((document) => lspDocumentToVfile(document)),
+          ignoreName: '.' + prefix + 'ignore',
+          packageField: prefix + 'Config',
+          pluginPrefix: prefix,
+          plugins,
+          processor: unified(),
+          rcName: '.' + prefix + 'rc',
+          silentlyIgnore: true
+        },
+        (error, code, context) => {
+          if (error) {
+            reject(error)
+          } else {
+            resolve(context?.files ?? [])
+          }
         }
+      )
+    })
+  }
 
-        if (!context?.files) {
-          return
-        }
+  /**
+   * Process various LSP text documents using unified and send back the
+   * resulting messages as diagnostics.
+   *
+   * @param {TextDocument[]} textDocuments
+   */
+  async function checkDocuments(...textDocuments) {
+    const files = await processDocuments(textDocuments)
 
-        for (const file of context.files) {
-          connection.sendDiagnostics({
-            // VFile uses a file path, but LSP expects a file URL as a string.
-            uri: String(pathToFileURL(file.path)),
-            diagnostics: file.messages.map((message) =>
-              vfileMessageToDiagnostic(message, prefix)
-            )
-          })
-        }
-      }
-    )
+    for (const file of files) {
+      connection.sendDiagnostics({
+        // VFile uses a file path, but LSP expects a file URL as a string.
+        uri: String(pathToFileURL(file.path)),
+        diagnostics: file.messages.map((message) =>
+          vfileMessageToDiagnostic(message, prefix)
+        )
+      })
+    }
   }
 
   connection.onInitialize(() => ({
     capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Full
+      textDocumentSync: TextDocumentSyncKind.Full,
+      documentFormattingProvider: true
     }
   }))
 
+  connection.onDocumentFormatting(async ({textDocument: {uri}}) => {
+    const document = documents.get(uri)
+    if (!document) {
+      return
+    }
+
+    const [file] = await processDocuments([document], true)
+    const result = String(file)
+    const text = document.getText()
+    if (result === text) {
+      return
+    }
+
+    const start = Position.create(0, 0)
+    const end = document.positionAt(text.length)
+
+    return [TextEdit.replace(Range.create(start, end), result)]
+  })
+
   documents.onDidChangeContent(({document}) => {
-    processDocuments(document)
+    checkDocuments(document)
   })
 
   connection.onDidChangeConfiguration(() => {
-    processDocuments(...documents.all())
+    checkDocuments(...documents.all())
   })
 }
 
