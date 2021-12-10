@@ -55,20 +55,16 @@ function unistLocationToLSPRange(position) {
  * Convert a vfile message to a language server protocol diagnostic.
  *
  * @param {import('vfile-message').VFileMessage} message
- * @param {string|undefined} source
+ * @param {string|undefined} defaultSource
  * @returns {Diagnostic}
  */
-function vfileMessageToDiagnostic(message, source) {
+function vfileMessageToDiagnostic(message, defaultSource) {
   const diagnostic = Diagnostic.create(
     unistLocationToLSPRange(message.position),
     message.reason,
     message.fatal ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
-    message.ruleId
-      ? message.source
-        ? message.source + ':' + message.ruleId
-        : message.ruleId
-      : message.source || undefined,
-    source
+    message.ruleId || undefined,
+    message.source || defaultSource
   )
   if (message.url) {
     diagnostic.codeDescription = {href: message.url}
