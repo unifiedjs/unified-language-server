@@ -71,7 +71,11 @@ function vfileMessageToDiagnostic(message, defaultSource) {
   const diagnostic = Diagnostic.create(
     unistLocationToLSPRange(message.position),
     message.reason,
-    message.fatal ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+    message.fatal === true
+      ? DiagnosticSeverity.Error
+      : message.fatal === false
+      ? DiagnosticSeverity.Warning
+      : DiagnosticSeverity.Information,
     message.ruleId || undefined,
     message.source || defaultSource
   )
