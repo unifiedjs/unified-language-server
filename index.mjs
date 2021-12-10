@@ -17,6 +17,15 @@ import {
 import {TextDocument} from 'vscode-languageserver-textdocument'
 
 /**
+ * @typedef {Pick<
+ *   import('unified-engine').Options,
+ *   'ignoreName' | 'packageField' | 'pluginPrefix' | 'plugins' | 'rcName'
+ * > & {
+ *   defaultSource?: string
+ * }} UnifiedLanguageServerOptions
+ */
+
+/**
  * Convert a unist point to a language server protocol position.
  *
  * @param {import('unist').Point} point
@@ -91,10 +100,13 @@ function lspDocumentToVfile(document) {
 /**
  * @param {import('vscode-languageserver').Connection} connection
  * @param {TextDocuments<TextDocument>} documents
- * @param {import('unified-engine').Options['plugins']} plugins
- * @param {string} prefix
+ * @param {UnifiedLanguageServerOptions} options
  */
-function initUnifiedLanguageServer(connection, documents, prefix, plugins) {
+function initUnifiedLanguageServer(
+  connection,
+  documents,
+  {ignoreName, packageField, pluginPrefix, plugins, rcName, defaultSource}
+) {
   /**
    * Process various LSP text documents using unified and send back the
    * resulting messages as diagnostics.
@@ -109,12 +121,12 @@ function initUnifiedLanguageServer(connection, documents, prefix, plugins) {
         {
           alwaysStringify,
           files: textDocuments.map((document) => lspDocumentToVfile(document)),
-          ignoreName: '.' + prefix + 'ignore',
-          packageField: prefix + 'Config',
-          pluginPrefix: prefix,
+          ignoreName,
+          packageField,
+          pluginPrefix,
           plugins,
           processor: unified(),
-          rcName: '.' + prefix + 'rc',
+          rcName,
           silentlyIgnore: true
         },
         (error, code, context) => {
@@ -142,7 +154,7 @@ function initUnifiedLanguageServer(connection, documents, prefix, plugins) {
         // VFile uses a file path, but LSP expects a file URL as a string.
         uri: String(pathToFileURL(file.path)),
         diagnostics: file.messages.map((message) =>
-          vfileMessageToDiagnostic(message, prefix)
+          vfileMessageToDiagnostic(message, defaultSource)
         )
       })
     }
@@ -186,10 +198,14 @@ function initUnifiedLanguageServer(connection, documents, prefix, plugins) {
 const connection = createConnection(ProposedFeatures.all)
 const documents = new TextDocuments(TextDocument)
 
-initUnifiedLanguageServer(connection, documents, 'remark', [
-  'remark-parse',
-  'remark-stringify'
-])
+initUnifiedLanguageServer(connection, documents, {
+  defaultSource: 'remark',
+  ignoreName: '.remarkignore',
+  packageField: 'remarkConfig',
+  pluginPrefix: 'remark',
+  plugins: ['remark-parse', 'remark-stringify'],
+  rcName: '.remarkrc'
+})
 
 documents.listen(connection)
 connection.listen()
