@@ -197,6 +197,13 @@ function initUnifiedLanguageServer(
   connection.onDidChangeConfiguration(() => {
     checkDocuments(...documents.all())
   })
+
+  documents.onDidClose(({document: {uri}}) => {
+    connection.sendDiagnostics({
+      uri,
+      diagnostics: []
+    })
+  })
 }
 
 const connection = createConnection(ProposedFeatures.all)
