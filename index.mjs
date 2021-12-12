@@ -151,12 +151,17 @@ function initUnifiedLanguageServer(
    * @param {TextDocument[]} textDocuments
    */
   async function checkDocuments(...textDocuments) {
+    const documentVersions = new Map(
+      textDocuments.map((document) => [document.uri, document.version])
+    )
     const files = await processDocuments(textDocuments)
 
     for (const file of files) {
+      // VFile uses a file path, but LSP expects a file URL as a string.
+      const uri = String(pathToFileURL(file.path))
       connection.sendDiagnostics({
-        // VFile uses a file path, but LSP expects a file URL as a string.
-        uri: String(pathToFileURL(file.path)),
+        uri,
+        version: documentVersions.get(uri),
         diagnostics: file.messages.map((message) =>
           vfileMessageToDiagnostic(message, defaultSource)
         )
@@ -198,9 +203,10 @@ function initUnifiedLanguageServer(
     checkDocuments(...documents.all())
   })
 
-  documents.onDidClose(({document: {uri}}) => {
+  documents.onDidClose(({document: {uri, version}}) => {
     connection.sendDiagnostics({
       uri,
+      version,
       diagnostics: []
     })
   })
