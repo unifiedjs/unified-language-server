@@ -1,5 +1,5 @@
 {
-  "include": ["**/*.mjs"],
+  "include": ["**/*.js"],
   "compilerOptions": {
     "allowJs": true,
     "allowSyntheticDefaultImports": true,

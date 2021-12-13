@@ -12,7 +12,7 @@ import {
 } from 'vscode-languageserver/node.js'
 import {TextDocument} from 'vscode-languageserver-textdocument'
 
-import {configureUnifiedLanguageServer} from '../server.mjs'
+import {configureUnifiedLanguageServer} from '../server.js'
 
 /**
  * @returns {import('vscode-languageserver').Connection}
@@ -54,7 +54,7 @@ function getDiagnostic(uri, text) {
   })
 
   configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.mjs']
+    plugins: ['./test/test-plugin.js']
   })
 
   onDidChangeContent.firstCall.firstArg({
@@ -316,7 +316,7 @@ test('onDidChangeContent has source', async (t) => {
 //   })
 
 //   configureUnifiedLanguageServer(connection, documents, {
-//     plugins: ['./test/test-plugin.mjs']
+//     plugins: ['./test/test-plugin.js']
 //   })
 
 //   const onDidChangeConfiguration = /** @type import('sinon').SinonSpy */ (
@@ -371,7 +371,7 @@ test('onDidClose', async (t) => {
   })
 
   configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.mjs']
+    plugins: ['./test/test-plugin.js']
   })
 
   onDidClose.firstCall.firstArg({

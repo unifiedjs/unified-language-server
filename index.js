@@ -4,7 +4,7 @@ import {
   TextDocuments
 } from 'vscode-languageserver/node.js'
 import {TextDocument} from 'vscode-languageserver-textdocument'
-import {configureUnifiedLanguageServer} from './server.mjs'
+import {configureUnifiedLanguageServer} from './server.js'
 
 /**
  * @typedef {Pick<
