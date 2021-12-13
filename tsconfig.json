@@ -1,5 +1,5 @@
 {
-  "include": ["index.mjs"],
+  "include": ["**/*.mjs"],
   "compilerOptions": {
     "allowJs": true,
     "allowSyntheticDefaultImports": true,

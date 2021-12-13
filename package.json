@@ -33,7 +33,7 @@
   },
   "remarkConfig": {
     "plugins": [
-      "preset-wooorm"
+      "remark-preset-wooorm"
     ]
   },
   "dependencies": {
@@ -56,6 +56,8 @@
     "unified"
   ],
   "devDependencies": {
+    "@types/sinon": "^10.0.6",
+    "@types/tape": "^4.0.0",
     "prettier": "^2.0.0",
     "remark-cli": "^10.0.0",
     "remark-preset-wooorm": "^9.0.0",

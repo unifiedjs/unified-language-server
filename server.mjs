@@ -1,3 +1,4 @@
+import {PassThrough} from 'node:stream'
 import {URL, pathToFileURL} from 'node:url'
 
 import {unified} from 'unified'
@@ -12,6 +13,8 @@ import {
   TextEdit
 } from 'vscode-languageserver/node.js'
 
+const streamOut = new PassThrough()
+
 /**
  * Convert a unist point to a language server protocol position.
  *
@@ -20,6 +23,16 @@ import {
  */
 function unistPointToLSPPosition(point) {
   return Position.create(point.line - 1, point.column - 1)
+}
+
+/**
+ * @param {import('unist').Point?} point
+ * @returns {boolean}
+ */
+function isValidUnistPoint(point) {
+  return Boolean(
+    point && Number.isInteger(point.line) && Number.isInteger(point.column)
+  )
 }
 
 /**
@@ -32,19 +45,26 @@ function unistPointToLSPPosition(point) {
  * @returns {Range}
  */
 function unistLocationToLSPRange(position) {
-  if (!position) {
-    return Range.create(0, 0, 0, 0)
+  if (position) {
+    if (isValidUnistPoint(position.start)) {
+      if (isValidUnistPoint(position.end)) {
+        return Range.create(
+          unistPointToLSPPosition(position.start),
+          unistPointToLSPPosition(position.end)
+        )
+      }
+
+      const start = unistPointToLSPPosition(position.start)
+      return Range.create(start, start)
+    }
+
+    if (isValidUnistPoint(position.end)) {
+      const end = unistPointToLSPPosition(position.end)
+      return Range.create(end, end)
+    }
   }
 
-  const start = unistPointToLSPPosition(position.start)
-
-  return Range.create(
-    start,
-    // Fall back to start if the end position contains null values
-    position.end.line && position.end.column
-      ? unistPointToLSPPosition(position.end)
-      : start
-  )
+  return Range.create(0, 0, 0, 0)
 }
 
 /**
@@ -117,8 +137,11 @@ export function configureUnifiedLanguageServer(
           pluginPrefix,
           plugins,
           processor: unified(),
+          quiet: false,
           rcName,
-          silentlyIgnore: true
+          silentlyIgnore: true,
+          streamError: streamOut,
+          streamOut
         },
         (error, code, context) => {
           if (error) {
