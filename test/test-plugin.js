@@ -22,6 +22,15 @@ export default function unifiedTestPlugin() {
       })
     }
 
+    if (value.includes('no start')) {
+      file.message('no start', {
+        // @ts-expect-error Some plugins report this. The language server should
+        // handle it.
+        start: {line: null, column: null},
+        end: {line: 2, column: 10}
+      })
+    }
+
     if (value.includes('fatal true')) {
       const message = file.message('fatal true')
       message.fatal = true
@@ -40,6 +49,15 @@ export default function unifiedTestPlugin() {
     if (value.includes('has source')) {
       const message = file.message('has source')
       message.source = 'test-source'
+    }
+
+    if (value.includes('has url')) {
+      const message = file.message('has url')
+      message.url = 'https://example.com'
+    }
+
+    if (value.includes('has error')) {
+      throw new Error('Test error')
     }
   }
 }

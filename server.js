@@ -144,11 +144,13 @@ export function configureUnifiedLanguageServer(
           streamOut
         },
         (error, code, context) => {
+          /* c8 ignore start */
           if (error) {
             reject(error)
           } else {
             resolve(context?.files ?? [])
           }
+          /* c8 ignore end */
         }
       )
     })

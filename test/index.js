@@ -211,6 +211,25 @@ test('onDidChangeContent start end', async (t) => {
   t.end()
 })
 
+test('onDidChangeContent no start', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'no start')
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        range: {start: {line: 1, character: 9}, end: {line: 1, character: 9}},
+        message: 'no start',
+        severity: DiagnosticSeverity.Warning
+      }
+    ]
+  })
+
+  t.end()
+})
+
 test('onDidChangeContent fatal true', async (t) => {
   const uri = String(pathToFileURL('test.md'))
   const diagnostics = await getDiagnostic(uri, 'fatal true')
@@ -282,6 +301,47 @@ test('onDidChangeContent has source', async (t) => {
         message: 'has source',
         source: 'test-source',
         severity: DiagnosticSeverity.Warning
+      }
+    ]
+  })
+
+  t.end()
+})
+
+test('onDidChangeContent has url', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'has url')
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        codeDescription: {
+          href: 'https://example.com'
+        },
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'has url',
+        severity: DiagnosticSeverity.Warning
+      }
+    ]
+  })
+
+  t.end()
+})
+
+test('onDidChangeContent has error', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'has error')
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'Test error',
+        severity: DiagnosticSeverity.Error
       }
     ]
   })
