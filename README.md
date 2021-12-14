@@ -33,7 +33,7 @@ It can do the following:
 
 *   format documents based on a unified processor
 *   validate documents based on a unified processor
-*   support configuration files using [unified-engine][]
+*   support configuration files (such as `.remarkrc`) using [unified-engine][]
 
 **unified** is a project that validates and transforms content with abstract
 syntax trees (ASTs).
