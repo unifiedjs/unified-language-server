@@ -137,9 +137,9 @@ Name of configuration files to load (`string`, optional)
 
 For examples, see the following projects:
 
-*   [redot-language-server][]
-*   [rehype-language-server][]
-*   [remark-language-server][]
+*   [redot-language-server][] (Coming soon)
+*   [rehype-language-server][] (Coming soon)
+*   [remark-language-server][] (Coming soon)
 
 ## Types
 
