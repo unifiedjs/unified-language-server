@@ -154,8 +154,6 @@ versions of Node.js.
 As of now, that is Node.js 12.20+, 14.14+, and 16.0+.
 Our projects sometimes work with older versions, but this is not guaranteed.
 
-This plugin works with `unified` version 10+.
-
 ## Related
 
 *   [unified][]
