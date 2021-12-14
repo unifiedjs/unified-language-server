@@ -138,9 +138,9 @@ Name of configuration files to load (`string`, optional)
 
 For examples, see the following projects:
 
-*   \[`redot-language-server`]\[]
-*   \[`rehype-language-server`]\[]
-*   \[`remark-language-server`]\[]
+*   [redot-language-server][]
+*   [rehype-language-server][]
+*   [remark-language-server][]
 
 ## Types
 
@@ -159,9 +159,9 @@ This plugin works with `unified` version 10+.
 
 ## Related
 
-*   \[`unified`]\[]
+*   [unified][]
     — create pipeline for working with syntax trees
-*   \[`unified-args`]\[]
+*   [unified-args][]
     — create a CLI for a unified pipeline
 
 ## Contribute
@@ -221,6 +221,12 @@ abide by its terms.
 [license]: LICENSE.txt
 
 [author]: https://wooorm.com
+
+[redot-language-server]: https://github.com/redotjs/redot-language-server
+
+[rehype-language-server]: https://github.com/redotjs/rehype-language-server
+
+[remark-language-server]: https://github.com/redotjs/remark-language-server
 
 [typescript]: https://www.typescriptlang.org
 
