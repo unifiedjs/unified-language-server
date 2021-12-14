@@ -148,7 +148,7 @@ export function configureUnifiedLanguageServer(
           if (error) {
             reject(error)
           } else {
-            resolve(context?.files ?? [])
+            resolve((context && context.files) || [])
           }
           /* c8 ignore end */
         }
