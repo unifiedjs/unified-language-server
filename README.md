@@ -175,7 +175,7 @@ abide by its terms.
 
 ## License
 
-[MIT][license] © [Titus Wormer][author]
+[MIT][license] © [@aecepoglu][author]
 
 <!-- Definitions -->
 
@@ -219,7 +219,7 @@ abide by its terms.
 
 [license]: LICENSE.txt
 
-[author]: https://wooorm.com
+[author]: https://github.com/aecepoglu
 
 [redot-language-server]: https://github.com/redotjs/redot-language-server
 
