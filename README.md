@@ -37,7 +37,8 @@ It can do the following:
 
 **unified** is a project that validates and transforms content with abstract
 syntax trees (ASTs).
-**unified-engine** is an engine to process multiple files with unified using configuration files.
+**unified-engine** is an engine to process multiple files with unified using
+configuration files.
 **language server** is a standardized language independant way for creating
 editor integrations.
 
