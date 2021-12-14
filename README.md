@@ -180,21 +180,21 @@ abide by its terms.
 
 <!-- Definitions -->
 
-[build-badge]: https://github.com/rehypejs/rehype-format/workflows/main/badge.svg
+[build-badge]: https://github.com/unifiedjs/unified-language-server/workflows/main/badge.svg
 
-[build]: https://github.com/rehypejs/rehype-format/actions
+[build]: https://github.com/unifiedjs/unified-language-server/actions
 
-[coverage-badge]: https://img.shields.io/codecov/c/github/rehypejs/rehype-format.svg
+[coverage-badge]: https://img.shields.io/codecov/c/github/unifiedjs/unified-language-server.svg
 
-[coverage]: https://codecov.io/github/rehypejs/rehype-format
+[coverage]: https://codecov.io/github/unifiedjs/unified-language-server
 
-[downloads-badge]: https://img.shields.io/npm/dm/rehype-format.svg
+[downloads-badge]: https://img.shields.io/npm/dm/unified-language-server.svg
 
-[downloads]: https://www.npmjs.com/package/rehype-format
+[downloads]: https://www.npmjs.com/package/unified-language-server
 
-[size-badge]: https://img.shields.io/bundlephobia/minzip/rehype-format.svg
+[size-badge]: https://img.shields.io/bundlephobia/minzip/unified-language-server.svg
 
-[size]: https://bundlephobia.com/result?p=rehype-format
+[size]: https://bundlephobia.com/result?p=unified-language-server
 
 [sponsors-badge]: https://opencollective.com/unified/sponsors/badge.svg
 
@@ -204,17 +204,17 @@ abide by its terms.
 
 [chat-badge]: https://img.shields.io/badge/chat-discussions-success.svg
 
-[chat]: https://github.com/rehypejs/rehype/discussions
+[chat]: https://github.com/unifiedjs/rehype/discussions
 
 [npm]: https://docs.npmjs.com/cli/install
 
-[health]: https://github.com/rehypejs/.github
+[health]: https://github.com/unifiedjs/.github
 
-[contributing]: https://github.com/rehypejs/.github/blob/HEAD/contributing.md
+[contributing]: https://github.com/unifiedjs/.github/blob/HEAD/contributing.md
 
-[support]: https://github.com/rehypejs/.github/blob/HEAD/support.md
+[support]: https://github.com/unifiedjs/.github/blob/HEAD/support.md
 
-[coc]: https://github.com/rehypejs/.github/blob/HEAD/code-of-conduct.md
+[coc]: https://github.com/unifiedjs/.github/blob/HEAD/code-of-conduct.md
 
 [language server]: https://microsoft.github.io/language-server-protocol/
 
