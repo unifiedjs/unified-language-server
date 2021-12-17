@@ -211,10 +211,6 @@ export function configureUnifiedLanguageServer(
     checkDocuments(document)
   })
 
-  connection.onDidChangeConfiguration(() => {
-    checkDocuments(...documents.all())
-  })
-
   documents.onDidClose(({document: {uri, version}}) => {
     connection.sendDiagnostics({
       uri,
