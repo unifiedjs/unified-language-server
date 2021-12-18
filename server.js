@@ -13,8 +13,6 @@ import {
   TextEdit
 } from 'vscode-languageserver/node.js'
 
-const streamOut = new PassThrough()
-
 /**
  * Convert a unist point to a language server protocol position.
  *
@@ -140,8 +138,8 @@ export function configureUnifiedLanguageServer(
           quiet: false,
           rcName,
           silentlyIgnore: true,
-          streamError: streamOut,
-          streamOut
+          streamError: new PassThrough(),
+          streamOut: new PassThrough()
         },
         (error, code, context) => {
           /* c8 ignore start */
