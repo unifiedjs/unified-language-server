@@ -19,7 +19,7 @@ import {
  * @param {import('unist').Point} point
  * @returns {Position}
  */
-function unistPointToLSPPosition(point) {
+function unistPointToLspPosition(point) {
   return Position.create(point.line - 1, point.column - 1)
 }
 
@@ -42,22 +42,22 @@ function isValidUnistPoint(point) {
  * @param {import('unist').Position?} position
  * @returns {Range}
  */
-function unistLocationToLSPRange(position) {
+function unistLocationToLspRange(position) {
   if (position) {
     if (isValidUnistPoint(position.start)) {
       if (isValidUnistPoint(position.end)) {
         return Range.create(
-          unistPointToLSPPosition(position.start),
-          unistPointToLSPPosition(position.end)
+          unistPointToLspPosition(position.start),
+          unistPointToLspPosition(position.end)
         )
       }
 
-      const start = unistPointToLSPPosition(position.start)
+      const start = unistPointToLspPosition(position.start)
       return Range.create(start, start)
     }
 
     if (isValidUnistPoint(position.end)) {
-      const end = unistPointToLSPPosition(position.end)
+      const end = unistPointToLspPosition(position.end)
       return Range.create(end, end)
     }
   }
@@ -74,7 +74,7 @@ function unistLocationToLSPRange(position) {
  */
 function vfileMessageToDiagnostic(message, defaultSource) {
   const diagnostic = Diagnostic.create(
-    unistLocationToLSPRange(message.position),
+    unistLocationToLspRange(message.position),
     message.reason,
     message.fatal === true
       ? DiagnosticSeverity.Error
