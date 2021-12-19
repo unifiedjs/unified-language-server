@@ -12,14 +12,14 @@ import {configureUnifiedLanguageServer} from './server.js'
  *   'ignoreName' | 'packageField' | 'pluginPrefix' | 'plugins' | 'rcName'
  * > & {
  *   defaultSource?: string
- * }} UnifiedLanguageServerOptions
+ * }} Options
  */
 
 /**
  * Create a language server for a unified ecosystem.
  *
- * @param {UnifiedLanguageServerOptions} options Configuration for
- * `unified-engine` and the language server.
+ * @param {Options} options Configuration for `unified-engine` and the language
+ * server.
  */
 export function createUnifiedLanguageServer(options) {
   const connection = createConnection(ProposedFeatures.all)
