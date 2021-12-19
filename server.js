@@ -109,7 +109,7 @@ function lspDocumentToVfile(document) {
 /**
  * @param {import('vscode-languageserver').Connection} connection
  * @param {import('vscode-languageserver').TextDocuments<import('vscode-languageserver-textdocument').TextDocument>} documents
- * @param {import('./index.js').UnifiedLanguageServerOptions} options
+ * @param {import('./index.js').Options} options
  */
 export function configureUnifiedLanguageServer(
   connection,
