@@ -208,11 +208,12 @@ export function configureUnifiedLanguageServer(
     return [TextEdit.replace(Range.create(start, end), result)]
   })
 
-  documents.onDidChangeContent(({document}) => {
-    checkDocuments(document)
+  documents.onDidChangeContent((event) => {
+    checkDocuments(event.document)
   })
 
-  documents.onDidClose(({document: {uri, version}}) => {
+  documents.onDidClose((event) => {
+    const {uri, version} = event.document
     connection.sendDiagnostics({
       uri,
       version,
