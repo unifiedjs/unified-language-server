@@ -142,6 +142,9 @@ export function configureUnifiedLanguageServer(
           streamOut: new PassThrough()
         },
         (error, code, context) => {
+          // An error never occur and can’t be reproduced. Thus us ab internal
+          // error in unified-engine. If a plugin throws, it’s reported as a
+          // vfile message.
           /* c8 ignore start */
           if (error) {
             reject(error)
