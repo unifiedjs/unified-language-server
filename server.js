@@ -14,9 +14,19 @@ import {
 } from 'vscode-languageserver/node.js'
 
 /**
+ * @typedef {import('unist').Point} Point
+ * @typedef {import('unist').Position} UnistPosition
+ * @typedef {import('vfile-message').VFileMessage} VFileMessage
+ * @typedef {import('vscode-languageserver').Connection} Connection
+ * @typedef {import('vscode-languageserver-textdocument').TextDocument} TextDocument
+ * @typedef {import('vscode-languageserver').TextDocuments<TextDocument>} TextDocuments
+ * @typedef {import('.').Options} Options
+ */
+
+/**
  * Convert a unist point to a language server protocol position.
  *
- * @param {import('unist').Point} point
+ * @param {Point} point
  * @returns {Position}
  */
 function unistPointToLspPosition(point) {
@@ -24,7 +34,7 @@ function unistPointToLspPosition(point) {
 }
 
 /**
- * @param {import('unist').Point|null|undefined} point
+ * @param {Point|null|undefined} point
  * @returns {boolean}
  */
 function isValidUnistPoint(point) {
@@ -39,7 +49,7 @@ function isValidUnistPoint(point) {
  * If no position is given, a range is returned  which represents the beginning
  * of the document.
  *
- * @param {import('unist').Position|null|undefined} position
+ * @param {UnistPosition|null|undefined} position
  * @returns {Range}
  */
 function unistLocationToLspRange(position) {
@@ -68,7 +78,7 @@ function unistLocationToLspRange(position) {
 /**
  * Convert a vfile message to a language server protocol diagnostic.
  *
- * @param {import('vfile-message').VFileMessage} message
+ * @param {VFileMessage} message
  * @param {string|undefined} defaultSource
  * @returns {Diagnostic}
  */
@@ -94,8 +104,8 @@ function vfileMessageToDiagnostic(message, defaultSource) {
 /**
  * Convert language server protocol text document to a vfile.
  *
- * @param {import('vscode-languageserver').TextDocument} document
- * @returns {import('vfile').VFile}
+ * @param {TextDocument} document
+ * @returns {VFile}
  */
 function lspDocumentToVfile(document) {
   return new VFile({
@@ -107,9 +117,9 @@ function lspDocumentToVfile(document) {
 }
 
 /**
- * @param {import('vscode-languageserver').Connection} connection
- * @param {import('vscode-languageserver').TextDocuments<import('vscode-languageserver-textdocument').TextDocument>} documents
- * @param {import('./index.js').Options} options
+ * @param {Connection} connection
+ * @param {TextDocuments} documents
+ * @param {Options} options
  */
 export function configureUnifiedLanguageServer(
   connection,
@@ -120,7 +130,7 @@ export function configureUnifiedLanguageServer(
    * Process various LSP text documents using unified and send back the
    * resulting messages as diagnostics.
    *
-   * @param {import('vscode-languageserver').TextDocument[]} textDocuments
+   * @param {TextDocument[]} textDocuments
    * @param {boolean} alwaysStringify
    * @returns {Promise<VFile[]>}
    */
@@ -161,7 +171,7 @@ export function configureUnifiedLanguageServer(
    * Process various LSP text documents using unified and send back the
    * resulting messages as diagnostics.
    *
-   * @param {import('vscode-languageserver').TextDocument[]} textDocuments
+   * @param {TextDocument[]} textDocuments
    */
   async function checkDocuments(...textDocuments) {
     const documentVersions = new Map(
