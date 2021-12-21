@@ -29,6 +29,7 @@ function createMockConnection() {
     listen: spy(),
     onInitialize: spy(),
     onDidChangeConfiguration: spy(),
+    onDidChangeWatchedFiles: spy(),
     onDocumentFormatting: spy(),
     sendDiagnostics: stub()
   }
@@ -379,6 +380,72 @@ test('onDidClose', async (t) => {
     version: 0,
     diagnostics: []
   })
+
+  t.end()
+})
+
+test('onDidChangeWatchedFiles', async (t) => {
+  const connection = createMockConnection()
+  const documents = new TextDocuments(TextDocument)
+  const diagnosticsPromise = new Promise((resolve) => {
+    const sendDiagnostics = /** @type import('sinon').SinonStub */ (
+      connection.sendDiagnostics
+    )
+    sendDiagnostics.callsFake(() => {
+      if (sendDiagnostics.callCount === 2) {
+        resolve([
+          sendDiagnostics.firstCall.firstArg,
+          sendDiagnostics.lastCall.firstArg
+        ])
+      }
+    })
+  })
+  const uri1 = String(pathToFileURL('test1.md'))
+  const uri2 = String(pathToFileURL('test2.md'))
+
+  Object.defineProperty(documents, 'all', {
+    value: () => [
+      TextDocument.create(uri1, 'text', 0, 'has ruleId'),
+      TextDocument.create(uri2, 'text', 0, 'has source')
+    ]
+  })
+
+  configureUnifiedLanguageServer(connection, documents, {
+    plugins: ['./test/test-plugin.js']
+  })
+
+  const onDidChangeWatchedFiles = /** @type import('sinon').SinonSpy */ (
+    connection.onDidChangeWatchedFiles
+  )
+  onDidChangeWatchedFiles.firstCall.firstArg()
+  const diagnostics = await diagnosticsPromise
+
+  t.deepEquals(diagnostics, [
+    {
+      uri: uri1,
+      version: 0,
+      diagnostics: [
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+          message: 'has ruleId',
+          code: 'test-rule',
+          severity: DiagnosticSeverity.Warning
+        }
+      ]
+    },
+    {
+      uri: uri2,
+      version: 0,
+      diagnostics: [
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+          message: 'has source',
+          source: 'test-source',
+          severity: DiagnosticSeverity.Warning
+        }
+      ]
+    }
+  ])
 
   t.end()
 })

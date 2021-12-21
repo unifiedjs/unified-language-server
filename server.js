@@ -216,4 +216,8 @@ export function configureUnifiedLanguageServer(
       diagnostics: []
     })
   })
+
+  connection.onDidChangeWatchedFiles(() => {
+    checkDocuments(...documents.all())
+  })
 }
