@@ -24,7 +24,7 @@ function unistPointToLspPosition(point) {
 }
 
 /**
- * @param {import('unist').Point?} point
+ * @param {import('unist').Point|null|undefined} point
  * @returns {boolean}
  */
 function isValidUnistPoint(point) {
@@ -39,7 +39,7 @@ function isValidUnistPoint(point) {
  * If no position is given, a range is returned  which represents the beginning
  * of the document.
  *
- * @param {import('unist').Position?} position
+ * @param {import('unist').Position|null|undefined} position
  * @returns {Range}
  */
 function unistLocationToLspRange(position) {
