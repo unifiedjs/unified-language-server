@@ -16,7 +16,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "lib/*.js"
+    "lib/"
   ],
   "scripts": {
     "build": "rimraf '*.d.ts' 'test/*.d.ts' && tsc && type-coverage",
@@ -42,9 +42,11 @@
     ]
   },
   "dependencies": {
+    "@types/unist": "^2.0.0",
     "unified": "^10.0.0",
     "unified-engine": "^9.0.0",
     "vfile": "^5.0.0",
+    "vfile-message": "^3.0.0",
     "vscode-languageserver": "^7.0.0",
     "vscode-languageserver-textdocument": "^1.0.0"
   },
