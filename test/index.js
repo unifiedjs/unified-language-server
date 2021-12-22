@@ -12,7 +12,7 @@ import {
 } from 'vscode-languageserver/node.js'
 import {TextDocument} from 'vscode-languageserver-textdocument'
 
-import {configureUnifiedLanguageServer} from '../server.js'
+import {configureUnifiedLanguageServer} from '../lib/server.js'
 
 /**
  * @returns {import('vscode-languageserver').Connection}
