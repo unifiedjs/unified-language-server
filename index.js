@@ -1,11 +1,3 @@
-import {
-  createConnection,
-  ProposedFeatures,
-  TextDocuments
-} from 'vscode-languageserver/node.js'
-import {TextDocument} from 'vscode-languageserver-textdocument'
-import {configureUnifiedLanguageServer} from './server.js'
-
 /**
  * @typedef {Pick<
  *   import('unified-engine').Options,
@@ -14,6 +6,14 @@ import {configureUnifiedLanguageServer} from './server.js'
  *   defaultSource?: string
  * }} Options
  */
+
+import {
+  createConnection,
+  ProposedFeatures,
+  TextDocuments
+} from 'vscode-languageserver/node.js'
+import {TextDocument} from 'vscode-languageserver-textdocument'
+import {configureUnifiedLanguageServer} from './server.js'
 
 /**
  * Create a language server for a unified ecosystem.

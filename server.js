@@ -1,3 +1,13 @@
+/**
+ * @typedef {import('unist').Point} Point
+ * @typedef {import('unist').Position} UnistPosition
+ * @typedef {import('vfile-message').VFileMessage} VFileMessage
+ * @typedef {import('vscode-languageserver').Connection} Connection
+ * @typedef {import('vscode-languageserver-textdocument').TextDocument} TextDocument
+ * @typedef {import('vscode-languageserver').TextDocuments<TextDocument>} TextDocuments
+ * @typedef {import('.').Options} Options
+ */
+
 import {PassThrough} from 'node:stream'
 import {URL, pathToFileURL} from 'node:url'
 
@@ -12,16 +22,6 @@ import {
   TextDocumentSyncKind,
   TextEdit
 } from 'vscode-languageserver/node.js'
-
-/**
- * @typedef {import('unist').Point} Point
- * @typedef {import('unist').Position} UnistPosition
- * @typedef {import('vfile-message').VFileMessage} VFileMessage
- * @typedef {import('vscode-languageserver').Connection} Connection
- * @typedef {import('vscode-languageserver-textdocument').TextDocument} TextDocument
- * @typedef {import('vscode-languageserver').TextDocuments<TextDocument>} TextDocuments
- * @typedef {import('.').Options} Options
- */
 
 /**
  * Convert a unist point to a language server protocol position.
