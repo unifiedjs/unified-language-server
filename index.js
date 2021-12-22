@@ -2,9 +2,7 @@
  * @typedef {Pick<
  *   import('unified-engine').Options,
  *   'ignoreName' | 'packageField' | 'pluginPrefix' | 'plugins' | 'rcName'
- * > & {
- *   defaultSource?: string
- * }} Options
+ * >} Options
  */
 
 import {
