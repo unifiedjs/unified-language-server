@@ -216,7 +216,7 @@ abide by its terms.
 
 [language server]: https://microsoft.github.io/language-server-protocol/
 
-[license]: LICENSE.txt
+[license]: license
 
 [author]: https://github.com/aecepoglu
 
