@@ -33,13 +33,14 @@ It can do the following:
 
 *   format documents based on a unified processor
 *   validate documents based on a unified processor
-*   support configuration files (such as `.remarkrc`) using [unified-engine][]
+*   support configuration files (such as `.remarkrc`) using
+    [`unified-engine`][unified-engine]
 
 **unified** is a project that validates and transforms content with abstract
 syntax trees (ASTs).
 **unified-engine** is an engine to process multiple files with unified using
 configuration files.
-**language server** is a standardized language independant way for creating
+**language server** is a standardized language independent way for creating
 editor integrations.
 
 ## When should I use this?
@@ -47,7 +48,7 @@ editor integrations.
 This package is useful when you want to create a language server for an existing
 unified ecosystem.
 Ideally this should follow the same rules as a CLI for this ecosystem created
-using [unified-args][].
+using [`unified-args`][unified-args].
 The resulting package may then be used to create plugins for this ecosystem for
 various editors.
 
@@ -62,7 +63,7 @@ npm install unified-language-server
 
 ## Use
 
-Let’s say you want to create a language server for \[remark]\[].
+Let’s say you want to create a language server for [remark][].
 
 Create a file names `package.json` with the following content:
 
@@ -107,10 +108,6 @@ Create a language server for a unified ecosystem.
 
 Configuration for `unified-engine` and the language server.
 
-###### `options.defaultSource`
-
-Default source used for diagnostics (`string`, optional)
-
 ###### `options.ignoreName`
 
 Name of ignore files to load (`string`, optional)
@@ -138,9 +135,12 @@ Name of configuration files to load (`string`, optional)
 
 For examples, see the following projects:
 
-*   [redot-language-server][] (Coming soon)
-*   [rehype-language-server][] (Coming soon)
-*   [remark-language-server][] (Coming soon)
+*   [`redot-language-server`](https://github.com/redotjs/redot-language-server)
+    (coming soon)
+*   [`rehype-language-server`](https://github.com/rehypejs/rehype-language-server)
+    (coming soon)
+*   [`remark-language-server`](https://github.com/remarkjs/remark-language-server)
+    (coming soon)
 
 ## Types
 
@@ -157,9 +157,9 @@ Our projects sometimes work with older versions, but this is not guaranteed.
 
 ## Related
 
-*   [unified][]
+*   [`unified`](https://github.com/unifiedjs/unified)
     — create pipeline for working with syntax trees
-*   [unified-args][]
+*   [`unified-args`](https://github.com/unifiedjs/unified-args)
     — create a CLI for a unified pipeline
 
 ## Contribute
@@ -216,19 +216,15 @@ abide by its terms.
 
 [language server]: https://microsoft.github.io/language-server-protocol/
 
-[license]: LICENSE.txt
+[license]: license
 
 [author]: https://github.com/aecepoglu
-
-[redot-language-server]: https://github.com/redotjs/redot-language-server
-
-[rehype-language-server]: https://github.com/redotjs/rehype-language-server
-
-[remark-language-server]: https://github.com/redotjs/remark-language-server
 
 [typescript]: https://www.typescriptlang.org
 
 [unified]: https://github.com/unifiedjs/unified
+
+[remark]: https://github.com/remarkjs/remark
 
 [unified-args]: https://github.com/unifiedjs/unified-args
 
