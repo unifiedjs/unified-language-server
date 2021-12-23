@@ -1,1 +1,5 @@
+coverage/
 node_modules/
+*.log
+*.d.ts
+*.tgz
