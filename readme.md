@@ -164,7 +164,7 @@ Our projects sometimes work with older versions, but this is not guaranteed.
 
 ## Contribute
 
-See [`contributing.md`][contributing] in [`unified/.github`][health] for ways
+See [`contributing.md`][contributing] in [`unifiedjs/.github`][health] for ways
 to get started.
 See [`support.md`][support] for ways to get help.
 
