@@ -108,10 +108,6 @@ Create a language server for a unified ecosystem.
 
 Configuration for `unified-engine` and the language server.
 
-###### `options.defaultSource`
-
-Default source used for diagnostics (`string`, optional)
-
 ###### `options.ignoreName`
 
 Name of ignore files to load (`string`, optional)
