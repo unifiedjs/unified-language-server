@@ -2,6 +2,7 @@ import {pathToFileURL} from 'node:url'
 
 import {spy, stub} from 'sinon'
 import test from 'tape'
+import * as exports from 'unified-language-server'
 import {
   DiagnosticSeverity,
   Position,
@@ -12,7 +13,10 @@ import {
 } from 'vscode-languageserver/node.js'
 import {TextDocument} from 'vscode-languageserver-textdocument'
 
-import {configureUnifiedLanguageServer} from '../lib/index.js'
+import {
+  configureUnifiedLanguageServer,
+  createUnifiedLanguageServer
+} from '../lib/index.js'
 
 /**
  * @returns {import('vscode-languageserver').Connection}
@@ -446,6 +450,12 @@ test('onDidChangeWatchedFiles', async (t) => {
       ]
     }
   ])
+
+  t.end()
+})
+
+test('exports', (t) => {
+  t.equal(exports.createUnifiedLanguageServer, createUnifiedLanguageServer)
 
   t.end()
 })
