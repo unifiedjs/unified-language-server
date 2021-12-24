@@ -20,6 +20,7 @@ Create a **[language server][]** based on **[unified][]** ecosystems.
     *   [`createUnifiedLanguageServer(options)`](#createunifiedlanguageserveroptions)
 *   [Examples](#examples)
 *   [Types](#types)
+*   [Language Server features](#language-server-features)
 *   [Compatibility](#compatibility)
 *   [Related](#related)
 *   [Contribute](#contribute)
@@ -148,12 +149,44 @@ This package is fully typed with [TypeScript][].
 It exports an `Options` type, which specifies the interface of the accepted
 options.
 
+## Language Server features
+
+Language servers created using this package implement the following language
+server features:
+
+*   `textDocument/didChange`
+    — when a document is changed by the client, the language server processes it
+    using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/didClose`
+    — when a document is closed by the client, the language server resets
+    diagnostics by publishing an empty array using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/didOpen`
+    — when a document is opened by the client, the language server processes it
+    using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/formatting`
+    — when document formatting is requested by the client, the language server
+    processes it using a unified pipeline.
+    The stringified result is returned.
+*   `workspace/didChangeWatchedFiles`
+    — When the client signals a watched file has changed, the language server
+    processes all open files using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
+
 ## Compatibility
 
 Projects maintained by the unified collective are compatible with all maintained
 versions of Node.js.
 As of now, that is Node.js 12.20+, 14.14+, and 16.0+.
 Our projects sometimes work with older versions, but this is not guaranteed.
+
+This project uses [`vscode-languageserver`][vscode-languageserver] 7, which
+implements language server protocol 3.16.
 
 ## Related
 
@@ -229,3 +262,5 @@ abide by its terms.
 [unified-args]: https://github.com/unifiedjs/unified-args
 
 [unified-engine]: https://github.com/unifiedjs/unified-engine
+
+[vscode-languageserver]: https://github.com/microsoft/vscode-languageserver-node/tree/main/server
