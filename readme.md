@@ -154,13 +154,29 @@ options.
 Language servers created using this package implement the following language
 server features:
 
-| Method                            | Implementation                                                                                                                                                                                                         |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `textDocument/didChange`          | When a document is changed by the client, the language server processes it using a unified pipeline. Any messages collected are published to the client using `textDocument/publishDiagnostics`.                       |
-| `textDocument/didClose`           | When a document is closed by the client, the language server resets diagnostics by publishing an empty array using `textDocument/publishDiagnostics`.                                                                  |
-| `textDocument/didOpen`            | When a document is opened by the client, the language server processes it using a unified pipeline. Any messages collected are published to the client using `textDocument/publishDiagnostics`.                        |
-| `textDocument/formatting`         | When document formatting is requested by the client, the language server processes it using a unified pipeline. The stringified result is returned.                                                                    |
-| `workspace/didChangeWatchedFiles` | When the client signals a watched file has changed, the language server processes all open files using a unified pipeline. Any messages collected are published to the client using `textDocument/publishDiagnostics`. |
+*   `textDocument/didChange`
+    — when a document is changed by the client, the language server processes it
+    using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/didClose`
+    — when a document is closed by the client, the language server resets
+    diagnostics by publishing an empty array using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/didOpen`
+    — when a document is opened by the client, the language server processes it
+    using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
+*   `textDocument/formatting`
+    — when document formatting is requested by the client, the language server
+    processes it using a unified pipeline.
+    The stringified result is returned.
+*   `workspace/didChangeWatchedFiles`
+    — When the client signals a watched file has changed, the language server
+    processes all open files using a unified pipeline.
+    Any messages collected are published to the client using
+    `textDocument/publishDiagnostics`.
 
 ## Compatibility
 
