@@ -56,6 +56,11 @@ export default function unifiedTestPlugin() {
       message.url = 'https://example.com'
     }
 
+    if (value.includes('expected')) {
+      const message = file.message('expected')
+      message.expected = ['suggestion']
+    }
+
     if (value.includes('has error')) {
       throw new Error('Test error')
     }
