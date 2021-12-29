@@ -154,6 +154,11 @@ options.
 Language servers created using this package implement the following language
 server features:
 
+*   `textDocument/codeAction`
+    — The language server implements code actions based on the `expected` field
+    on reported messages.
+    A code action can either insert, replace, or delete text based on the range
+    of the message and the expected value.
 *   `textDocument/didChange`
     — when a document is changed by the client, the language server processes it
     using a unified pipeline.
