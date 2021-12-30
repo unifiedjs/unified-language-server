@@ -136,12 +136,11 @@ Name of configuration files to load (`string`, optional)
 
 For examples, see the following projects:
 
-*   [`redot-language-server`](https://github.com/redotjs/redot-language-server)
+*   `redot-language-server`
     (coming soon)
-*   [`rehype-language-server`](https://github.com/rehypejs/rehype-language-server)
+*   `rehype-language-server`
     (coming soon)
 *   [`remark-language-server`](https://github.com/remarkjs/remark-language-server)
-    (coming soon)
 
 ## Types
 
