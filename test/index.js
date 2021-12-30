@@ -1,3 +1,7 @@
+/**
+ * @typedef {import('./test-plugin').UnifiedTestPluginOptions} UnifiedTestPluginOptions
+ */
+
 import {pathToFileURL} from 'node:url'
 
 import {spy, stub} from 'sinon'
@@ -44,9 +48,16 @@ function createMockConnection() {
 /**
  * @param {string} uri
  * @param {string} text
+ * @param {UnifiedTestPluginOptions} [pluginOptions]
+ * @param {string} pluginName
  * @returns {Promise<import('vscode-languageserver').PublishDiagnosticsParams>}
  */
-function getDiagnostic(uri, text) {
+function getDiagnostic(
+  uri,
+  text,
+  pluginOptions,
+  pluginName = './test/test-plugin.js'
+) {
   const connection = createMockConnection()
   const documents = new TextDocuments(TextDocument)
   const diagnosticsPromise = new Promise((resolve) => {
@@ -61,7 +72,7 @@ function getDiagnostic(uri, text) {
   })
 
   configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.js']
+    plugins: [[pluginName, pluginOptions]]
   })
 
   onDidChangeContent.firstCall.firstArg({
@@ -161,6 +172,61 @@ test('onDocumentFormatting equal', async (t) => {
   const result = await formatDocument({textDocument: {uri}})
 
   t.deepEquals(result, undefined)
+
+  t.end()
+})
+
+test('onDidChangeContent plugin error', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'test', {error: 'plugin'})
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'Plugin error',
+        severity: DiagnosticSeverity.Error
+      }
+    ]
+  })
+
+  t.end()
+})
+
+test('onDidChangeContent transformer error', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'test', {error: 'transformer'})
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'Transformer error',
+        severity: DiagnosticSeverity.Error
+      }
+    ]
+  })
+
+  t.end()
+})
+
+test('onDidChangeContent transformer error', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(
+    uri,
+    'test',
+    undefined,
+    'unresolved-plugin'
+  )
+
+  t.match(
+    diagnostics.diagnostics[0].message,
+    /Could not find module `unresolved-plugin`/
+  )
 
   t.end()
 })
