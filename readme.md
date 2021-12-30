@@ -75,7 +75,8 @@ Create a file names `package.json` with the following content:
   "bin": "./index.js",
   "type": "module",
   "dependencies": {
-    "unified-language-server"
+    "remark": "^14.0.0",
+    "unified-language-server": "^1.0.0"
   }
 }
 ```
@@ -83,6 +84,7 @@ Create a file names `package.json` with the following content:
 Then create `index.js` with the following content:
 
 ```js
+import {remark} from 'remark'
 import {createUnifiedLanguageServer} from 'unified-language-server'
 
 process.title = 'remark-language-server'
@@ -91,7 +93,7 @@ createUnifiedLanguageServer({
   ignoreName: '.remarkignore',
   packageField: 'remarkConfig',
   pluginPrefix: 'remark',
-  plugins: ['remark-parse', 'remark-stringify'],
+  processor: remark,
   rcName: '.remarkrc'
 })
 ```

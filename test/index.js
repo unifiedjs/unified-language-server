@@ -1,4 +1,6 @@
 /**
+ * @typedef {import('unified').Processor} Processor
+ * @typedef {import('unified').Plugin} Plugin
  * @typedef {import('./test-plugin').UnifiedTestPluginOptions} UnifiedTestPluginOptions
  */
 
@@ -6,6 +8,7 @@ import {pathToFileURL} from 'node:url'
 
 import {spy, stub} from 'sinon'
 import test from 'tape'
+import {unified} from 'unified'
 import * as exports from 'unified-language-server'
 import {
   CodeActionKind,
@@ -49,6 +52,7 @@ function createMockConnection() {
  * @param {string} uri
  * @param {string} text
  * @param {UnifiedTestPluginOptions} [pluginOptions]
+ * @param {Processor} [processor]
  * @param {string} pluginName
  * @returns {Promise<import('vscode-languageserver').PublishDiagnosticsParams>}
  */
@@ -56,6 +60,7 @@ function getDiagnostic(
   uri,
   text,
   pluginOptions,
+  processor,
   pluginName = './test/test-plugin.js'
 ) {
   const connection = createMockConnection()
@@ -72,7 +77,8 @@ function getDiagnostic(
   })
 
   configureUnifiedLanguageServer(connection, documents, {
-    plugins: [[pluginName, pluginOptions]]
+    plugins: [[pluginName, pluginOptions]],
+    processor
   })
 
   onDidChangeContent.firstCall.firstArg({
@@ -102,6 +108,36 @@ test('onInitialize', (t) => {
         resolveProvider: true
       }
     }
+  })
+
+  t.end()
+})
+
+test('Custom processor', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(
+    uri,
+    'test',
+    undefined,
+    unified().use(
+      /** @type {Plugin} */ (
+        () => (ast, file) => {
+          file.message('custom processor')
+        }
+      )
+    )
+  )
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'custom processor',
+        severity: DiagnosticSeverity.Warning
+      }
+    ]
   })
 
   t.end()
@@ -219,6 +255,7 @@ test('onDidChangeContent transformer error', async (t) => {
   const diagnostics = await getDiagnostic(
     uri,
     'test',
+    undefined,
     undefined,
     'unresolved-plugin'
   )
