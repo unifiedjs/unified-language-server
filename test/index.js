@@ -4,6 +4,7 @@ import {spy, stub} from 'sinon'
 import test from 'tape'
 import * as exports from 'unified-language-server'
 import {
+  CodeActionKind,
   DiagnosticSeverity,
   Position,
   Range,
@@ -34,6 +35,7 @@ function createMockConnection() {
     onInitialize: spy(),
     onDidChangeConfiguration: spy(),
     onDidChangeWatchedFiles: spy(),
+    onCodeAction: spy(),
     onDocumentFormatting: spy(),
     sendDiagnostics: stub()
   }
@@ -83,7 +85,11 @@ test('onInitialize', (t) => {
   t.deepEquals(result, {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Full,
-      documentFormattingProvider: true
+      documentFormattingProvider: true,
+      codeActionProvider: {
+        codeActionKinds: [CodeActionKind.QuickFix],
+        resolveProvider: true
+      }
     }
   })
 
@@ -354,6 +360,26 @@ test('onDidChangeContent has error', async (t) => {
   t.end()
 })
 
+test('onDidChangeContent expected', async (t) => {
+  const uri = String(pathToFileURL('test.md'))
+  const diagnostics = await getDiagnostic(uri, 'expected')
+
+  t.deepEquals(diagnostics, {
+    uri,
+    version: 0,
+    diagnostics: [
+      {
+        data: {expected: ['suggestion']},
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        message: 'expected',
+        severity: DiagnosticSeverity.Warning
+      }
+    ]
+  })
+
+  t.end()
+})
+
 test('onDidClose', async (t) => {
   const connection = createMockConnection()
   const documents = new TextDocuments(TextDocument)
@@ -452,6 +478,117 @@ test('onDidChangeWatchedFiles', async (t) => {
   ])
 
   t.end()
+})
+
+test('onCodeAction not found', async (t) => {
+  const connection = createMockConnection()
+  const documents = new TextDocuments(TextDocument)
+
+  configureUnifiedLanguageServer(connection, documents, {
+    plugins: ['./test/test-plugin.js']
+  })
+
+  const onCodeAction = /** @type import('sinon').SinonSpy */ (
+    connection.onCodeAction
+  )
+  const codeActions = onCodeAction.firstCall.firstArg({
+    textDocument: {uri: 'file:///non-existent.txt'}
+  })
+
+  t.equals(codeActions, undefined)
+})
+
+test('onCodeAction diagnostics', async (t) => {
+  const connection = createMockConnection()
+  const documents = new TextDocuments(TextDocument)
+  const uri = String(pathToFileURL('test.txt'))
+
+  Object.defineProperty(documents, 'get', {
+    value: () => TextDocument.create(uri, 'text', 0, 'invalid')
+  })
+
+  configureUnifiedLanguageServer(connection, documents, {
+    plugins: ['./test/test-plugin.js']
+  })
+
+  const onCodeAction = /** @type import('sinon').SinonSpy */ (
+    connection.onCodeAction
+  )
+  const codeActions = onCodeAction.firstCall.firstArg({
+    textDocument: {uri},
+    context: {
+      diagnostics: [
+        {},
+        {data: null},
+        {
+          data: {expected: ['text to insert']},
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}}
+        },
+        {
+          data: {expected: ['replacement text']},
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 7}}
+        },
+        {
+          data: {expected: ['']},
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 7}}
+        }
+      ]
+    }
+  })
+
+  t.deepEquals(codeActions, [
+    {
+      title: 'Insert `text to insert`',
+      kind: CodeActionKind.QuickFix,
+      edit: {
+        changes: {
+          [uri]: [
+            {
+              newText: 'text to insert',
+              range: {
+                start: {line: 0, character: 0},
+                end: {line: 0, character: 0}
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      title: 'Replace `invalid` with `replacement text`',
+      kind: CodeActionKind.QuickFix,
+      edit: {
+        changes: {
+          [uri]: [
+            {
+              newText: 'replacement text',
+              range: {
+                start: {line: 0, character: 0},
+                end: {line: 0, character: 7}
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      title: 'Remove `invalid`',
+      kind: CodeActionKind.QuickFix,
+      edit: {
+        changes: {
+          [uri]: [
+            {
+              newText: '',
+              range: {
+                start: {line: 0, character: 0},
+                end: {line: 0, character: 7}
+              }
+            }
+          ]
+        }
+      }
+    }
+  ])
 })
 
 test('exports', (t) => {
