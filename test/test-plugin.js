@@ -1,11 +1,24 @@
 /**
- * @type import('unified').Plugin
+ * @typedef {object} UnifiedTestPluginOptions
+ * @property {'plugin' | 'transformer'} [error]
  */
-export default function unifiedTestPlugin() {
+
+/**
+ * @type import('unified').Plugin<[UnifiedTestPluginOptions]>
+ */
+export default function unifiedTestPlugin({error} = {}) {
   this.Parser = () => ({type: 'root'})
   this.Compiler = () => 'Formatted output\n'
 
+  if (error === 'plugin') {
+    throw new Error('Plugin error')
+  }
+
   return (ast, file) => {
+    if (error === 'transformer') {
+      throw new Error('Transformer error')
+    }
+
     const value = String(file)
     if (value.includes('no position')) {
       file.message('no position')
