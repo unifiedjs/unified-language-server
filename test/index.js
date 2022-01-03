@@ -50,7 +50,8 @@ test('`initialize`', async (t) => {
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -136,7 +137,8 @@ createUnifiedLanguageServer({
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -153,7 +155,8 @@ createUnifiedLanguageServer({
           text: '# hi'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -163,7 +166,8 @@ createUnifiedLanguageServer({
       method: 'textDocument/didClose',
       /** @type {import('vscode-languageserver').DidCloseTextDocumentParams} */
       params: {textDocument: {uri: new URL('lsp.md', import.meta.url).href}}
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -271,7 +275,8 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -288,7 +293,8 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
           text: '   #   hi  \n'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -305,7 +311,8 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
           text: '# hi\n'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -319,7 +326,8 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         textDocument: {uri: new URL('bad.md', import.meta.url).href},
         options: {tabSize: 2, insertSpaces: true}
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -333,7 +341,8 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         textDocument: {uri: new URL('good.md', import.meta.url).href},
         options: {tabSize: 2, insertSpaces: true}
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -406,7 +415,8 @@ createUnifiedLanguageServer({
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -423,7 +433,8 @@ createUnifiedLanguageServer({
           text: '# hi'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -439,7 +450,8 @@ createUnifiedLanguageServer({
           {uri: new URL('c.md', import.meta.url).href, type: 3}
         ]
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -500,7 +512,8 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -517,7 +530,8 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
           text: '# hi'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -587,7 +601,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
         capabilities: {},
         workspaceFolders: null
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -604,7 +619,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
           text: '## hello'
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
@@ -670,7 +686,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
           ]
         }
       }
-    })
+    }),
+    () => {}
   )
 
   await sleep(delay)
