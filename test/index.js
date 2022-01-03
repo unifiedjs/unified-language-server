@@ -5,7 +5,6 @@
 import assert from 'node:assert'
 import {Buffer} from 'node:buffer'
 import {promises as fs} from 'node:fs'
-import path from 'node:path'
 import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
 import {promisify} from 'node:util'
@@ -16,7 +15,7 @@ import * as exports from 'unified-language-server'
 
 const sleep = promisify(setTimeout)
 
-const delay = 1000
+const delay = process.platform === 'win32' ? 600 : 300
 
 test('exports', (t) => {
   t.equal(typeof exports.createUnifiedLanguageServer, 'function')
@@ -50,8 +49,7 @@ test('`initialize`', async (t) => {
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -137,8 +135,7 @@ createUnifiedLanguageServer({
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -155,8 +152,7 @@ createUnifiedLanguageServer({
           text: '# hi'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -166,8 +162,7 @@ createUnifiedLanguageServer({
       method: 'textDocument/didClose',
       /** @type {import('vscode-languageserver').DidCloseTextDocumentParams} */
       params: {textDocument: {uri: new URL('lsp.md', import.meta.url).href}}
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -275,8 +270,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -293,8 +287,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
           text: '   #   hi  \n'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -311,8 +304,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
           text: '# hi\n'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -326,8 +318,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         textDocument: {uri: new URL('bad.md', import.meta.url).href},
         options: {tabSize: 2, insertSpaces: true}
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -341,8 +332,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
         textDocument: {uri: new URL('good.md', import.meta.url).href},
         options: {tabSize: 2, insertSpaces: true}
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -415,8 +405,7 @@ createUnifiedLanguageServer({
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -433,8 +422,7 @@ createUnifiedLanguageServer({
           text: '# hi'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -450,8 +438,7 @@ createUnifiedLanguageServer({
           {uri: new URL('c.md', import.meta.url).href, type: 3}
         ]
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -512,8 +499,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -530,8 +516,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
           text: '# hi'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -601,8 +586,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
         capabilities: {},
         workspaceFolders: null
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -619,8 +603,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
           text: '## hello'
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -686,8 +669,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
           ]
         }
       }
-    }),
-    () => {}
+    })
   )
 
   await sleep(delay)
@@ -821,7 +803,7 @@ function toMessage(data) {
  */
 function cleanStack(stack, max) {
   return stack
-    .replace(new RegExp('\\(.+\\' + path.sep, 'g'), '(')
+    .replace(/\(.+\//g, '(')
     .replace(/\d+:\d+/g, '1:1')
     .split('\n')
     .slice(0, max)
