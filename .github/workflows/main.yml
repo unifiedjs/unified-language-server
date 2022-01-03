@@ -17,8 +17,8 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
+          # - ubuntu-latest
           - windows-latest
         node:
-          - lts/erbium
+          # - lts/erbium
           - node

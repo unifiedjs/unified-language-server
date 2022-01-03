@@ -685,6 +685,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
     const exception = /** @type {ExecError} */ (error)
     const messages = fromMessages(exception.stdout)
 
+    console.log(JSON.stringify(messages, null, 2));
+
     t.deepEqual(
       messages,
       [
