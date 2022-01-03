@@ -16,7 +16,7 @@ import * as exports from 'unified-language-server'
 
 const sleep = promisify(setTimeout)
 
-const delay = 300
+const delay = 1000
 
 test('exports', (t) => {
   t.equal(typeof exports.createUnifiedLanguageServer, 'function')
@@ -36,7 +36,7 @@ test('`initialize`', async (t) => {
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
@@ -123,7 +123,7 @@ createUnifiedLanguageServer({
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
@@ -261,7 +261,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
@@ -401,7 +401,7 @@ createUnifiedLanguageServer({
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
@@ -498,7 +498,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
@@ -587,7 +587,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 2000
+    timeout: 10000
   })
 
   stdin.write(
