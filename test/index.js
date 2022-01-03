@@ -5,6 +5,7 @@
 import assert from 'node:assert'
 import {Buffer} from 'node:buffer'
 import {promises as fs} from 'node:fs'
+import process from 'node:process'
 import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
 import {promisify} from 'node:util'
@@ -16,6 +17,7 @@ import * as exports from 'unified-language-server'
 const sleep = promisify(setTimeout)
 
 const delay = process.platform === 'win32' ? 600 : 300
+const timeout = 10_000
 
 test('exports', (t) => {
   t.equal(typeof exports.createUnifiedLanguageServer, 'function')
@@ -35,7 +37,7 @@ test('`initialize`', async (t) => {
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
@@ -121,7 +123,7 @@ createUnifiedLanguageServer({
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
@@ -256,7 +258,7 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
@@ -391,7 +393,7 @@ createUnifiedLanguageServer({
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
@@ -485,7 +487,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
@@ -572,7 +574,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   const promise = execa('node', ['lsp.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
-    timeout: 10000
+    timeout
   })
 
   stdin.write(
