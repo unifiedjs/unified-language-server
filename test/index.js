@@ -4,7 +4,6 @@
 
 import assert from 'node:assert'
 import {Buffer} from 'node:buffer'
-import {promises as fs} from 'node:fs'
 import process from 'node:process'
 import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
@@ -26,15 +25,8 @@ test('exports', (t) => {
 })
 
 test('`initialize`', async (t) => {
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-    createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
-  )
-
   const stdin = new PassThrough()
-
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -84,43 +76,12 @@ test('`initialize`', async (t) => {
     )
   }
 
-  await fs.unlink(new URL('lsp.js', import.meta.url))
-
   t.end()
 })
 
 test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async (t) => {
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-
-createUnifiedLanguageServer({
-  plugins: [
-    'remark-parse',
-    'remark-stringify',
-    () => (tree, file) => {
-      file.info('info', tree)
-      file.message('warning', tree.children[0])
-      Object.assign(
-        file.message('error', tree.children[0].children[0]),
-        {fatal: true, ruleId: 'a', source: 'b', url: 'd', actual: 'hi', expected: ['hello']}
-      )
-
-      file.message('node', {
-        type: 'a',
-        position: {start: {line: 2, column: 3}, end: {line: 2, column: 4}}
-      })
-      file.message('position', {start: {line: 2, column: 3}, end: {line: 2, column: 4}})
-      file.message('point', {line: 2, column: 3})
-      file.message('nothing')
-    }
-  ]
-})`
-  )
-
   const stdin = new PassThrough()
-
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark-with-warnings.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -241,21 +202,13 @@ createUnifiedLanguageServer({
     )
   }
 
-  await fs.unlink(new URL('lsp.js', import.meta.url))
-
   t.end()
 })
 
 test('`textDocument/formatting`', async (t) => {
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
-  )
-
   const stdin = new PassThrough()
 
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -368,29 +321,12 @@ createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
     )
   }
 
-  await fs.unlink(new URL('lsp.js', import.meta.url))
-
   t.end()
 })
 
 test('`workspace/didChangeWatchedFiles`', async (t) => {
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-createUnifiedLanguageServer({
-  plugins: [
-    'remark-parse',
-    'remark-stringify',
-    () => (tree, file) => {
-      file.message('x', tree.children[0].children[0])
-    }
-  ]
-})`
-  )
-
   const stdin = new PassThrough()
-
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -462,29 +398,12 @@ createUnifiedLanguageServer({
     )
   }
 
-  await fs.unlink(new URL('lsp.js', import.meta.url))
-
   t.end()
 })
 
 test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => {
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-    createUnifiedLanguageServer({
-      plugins: [
-        'remark-parse',
-        'remark-stringify',
-        function () {
-          throw new Error('Whoops!')
-        }
-      ]
-    })`
-  )
-
   const stdin = new PassThrough()
-
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark-with-error.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -546,7 +465,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
       [
         {
           message:
-            'Error: Whoops!\n    at Function.createUnifiedLanguageServer.plugins (lsp.js:1:1)\n    at Function.freeze (index.js:1:1)',
+            'Error: Whoops!\n    at Function.oneError (one-error.js:1:1)\n    at Function.freeze (index.js:1:1)',
           range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
           severity: 1
         }
@@ -555,23 +474,14 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
     )
   }
 
-  await fs.unlink(new URL('lsp.js', import.meta.url))
-
   t.end()
 })
 
 test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   const uri = new URL('lsp.md', import.meta.url).href
-
-  await fs.writeFile(
-    new URL('lsp.js', import.meta.url),
-    `import {createUnifiedLanguageServer} from '../index.js'
-    createUnifiedLanguageServer({plugins: ['remark-parse', 'remark-stringify']})`
-  )
-
   const stdin = new PassThrough()
 
-  const promise = execa('node', ['lsp.js', '--stdio'], {
+  const promise = execa('node', ['remark.js', '--stdio'], {
     cwd: fileURLToPath(new URL('.', import.meta.url)),
     input: stdin,
     timeout
@@ -769,8 +679,6 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
       'should emit quick fixes on a `textDocument/codeAction`'
     )
   }
-
-  await fs.unlink(new URL('lsp.js', import.meta.url))
 
   t.end()
 })
