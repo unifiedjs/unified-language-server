@@ -1,701 +1,721 @@
 /**
- * @typedef {import('unified').Processor} Processor
- * @typedef {import('unified').Plugin} Plugin
- * @typedef {import('./test-plugin').UnifiedTestPluginOptions} UnifiedTestPluginOptions
+ * @typedef {import('node:child_process').ExecException & {stdout: string, stderr: string}} ExecError
  */
 
-import {pathToFileURL} from 'node:url'
-
-import {spy, stub} from 'sinon'
+import assert from 'node:assert'
+import {Buffer} from 'node:buffer'
+import process from 'node:process'
+import {PassThrough} from 'node:stream'
+import {URL, fileURLToPath} from 'node:url'
+import {promisify} from 'node:util'
+import {execa} from 'execa'
 import test from 'tape'
-import {unified} from 'unified'
+
 import * as exports from 'unified-language-server'
-import {
-  CodeActionKind,
-  DiagnosticSeverity,
-  Position,
-  Range,
-  TextDocuments,
-  TextDocumentSyncKind,
-  TextEdit
-} from 'vscode-languageserver/node.js'
-import {TextDocument} from 'vscode-languageserver-textdocument'
 
-import {
-  configureUnifiedLanguageServer,
-  createUnifiedLanguageServer
-} from '../lib/index.js'
+const sleep = promisify(setTimeout)
 
-/**
- * @returns {import('vscode-languageserver').Connection}
- */
-function createMockConnection() {
-  return {
-    // @ts-expect-error The connection is missing here, which is ok for testing.
-    console: {
-      error: spy(),
-      info: spy(),
-      log: spy(),
-      warn: spy()
-    },
-    listen: spy(),
-    onInitialize: spy(),
-    onDidChangeConfiguration: spy(),
-    onDidChangeWatchedFiles: spy(),
-    onCodeAction: spy(),
-    onDocumentFormatting: spy(),
-    sendDiagnostics: stub()
-  }
-}
-
-/**
- * @param {string} uri
- * @param {string} text
- * @param {UnifiedTestPluginOptions} [pluginOptions]
- * @param {Processor} [processor]
- * @param {string} pluginName
- * @returns {Promise<import('vscode-languageserver').PublishDiagnosticsParams>}
- */
-function getDiagnostic(
-  uri,
-  text,
-  pluginOptions,
-  processor,
-  pluginName = './test/test-plugin.js'
-) {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const diagnosticsPromise = new Promise((resolve) => {
-    const sendDiagnostics = /** @type import('sinon').SinonStub */ (
-      connection.sendDiagnostics
-    )
-    sendDiagnostics.callsFake(resolve)
-  })
-  const onDidChangeContent = spy()
-  Object.defineProperty(documents, 'onDidChangeContent', {
-    value: onDidChangeContent
-  })
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: [[pluginName, pluginOptions]],
-    processor
-  })
-
-  onDidChangeContent.firstCall.firstArg({
-    document: TextDocument.create(uri, 'text', 0, text)
-  })
-
-  return diagnosticsPromise
-}
-
-test('onInitialize', (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-
-  configureUnifiedLanguageServer(connection, documents, {})
-
-  const initialize = /** @type import('sinon').SinonSpy */ (
-    connection.onInitialize
-  ).firstCall.firstArg
-  const result = initialize()
-
-  t.deepEquals(result, {
-    capabilities: {
-      textDocumentSync: TextDocumentSyncKind.Full,
-      documentFormattingProvider: true,
-      codeActionProvider: {
-        codeActionKinds: [CodeActionKind.QuickFix],
-        resolveProvider: true
-      }
-    }
-  })
-
-  t.end()
-})
-
-test('Custom processor', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(
-    uri,
-    'test',
-    undefined,
-    unified().use(
-      /** @type {Plugin} */ (
-        () => (ast, file) => {
-          file.message('custom processor')
-        }
-      )
-    )
-  )
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'custom processor',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDocumentFormatting different', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const uri = String(pathToFileURL('test.md'))
-  const get = stub(documents, 'get').returns(
-    TextDocument.create(uri, 'markdown', 0, '#   Hello world!')
-  )
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['remark-parse', 'remark-stringify']
-  })
-
-  const formatDocument = /** @type import('sinon').SinonSpy */ (
-    connection.onDocumentFormatting
-  ).firstCall.firstArg
-  const result = await formatDocument({textDocument: {uri}})
-
-  t.deepEquals(get.firstCall.args, [uri])
-  t.deepEquals(result, [
-    TextEdit.replace(
-      Range.create(Position.create(0, 0), Position.create(0, 16)),
-      '# Hello world!\n'
-    )
-  ])
-
-  t.end()
-})
-
-test('onDocumentFormatting not found', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const uri = String(pathToFileURL('test.md'))
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['remark-parse', 'remark-stringify']
-  })
-
-  const formatDocument = /** @type import('sinon').SinonSpy */ (
-    connection.onDocumentFormatting
-  ).firstCall.firstArg
-  const result = await formatDocument({textDocument: {uri}})
-
-  t.deepEquals(result, undefined)
-
-  t.end()
-})
-
-test('onDocumentFormatting equal', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const uri = String(pathToFileURL('test.md'))
-  stub(documents, 'get').returns(
-    TextDocument.create(uri, 'markdown', 0, '# Hello world!\n')
-  )
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['remark-parse', 'remark-stringify']
-  })
-
-  const formatDocument = /** @type import('sinon').SinonSpy */ (
-    connection.onDocumentFormatting
-  ).firstCall.firstArg
-  const result = await formatDocument({textDocument: {uri}})
-
-  t.deepEquals(result, undefined)
-
-  t.end()
-})
-
-test('onDidChangeContent plugin error', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'test', {error: 'plugin'})
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'Plugin error',
-        severity: DiagnosticSeverity.Error
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent transformer error', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'test', {error: 'transformer'})
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'Transformer error',
-        severity: DiagnosticSeverity.Error
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent transformer error', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(
-    uri,
-    'test',
-    undefined,
-    undefined,
-    'unresolved-plugin'
-  )
-
-  t.match(
-    diagnostics.diagnostics[0].message,
-    /Could not find module `unresolved-plugin`/
-  )
-
-  t.end()
-})
-
-test('onDidChangeContent no position', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'no position')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'no position',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent no end', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'no end')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'no end',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent start end', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'start end')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 1, character: 9}},
-        message: 'start end',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent no start', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'no start')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 1, character: 9}, end: {line: 1, character: 9}},
-        message: 'no start',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent fatal true', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'fatal true')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'fatal true',
-        severity: DiagnosticSeverity.Error
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent fatal unknown', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'fatal unknown')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'fatal unknown',
-        severity: DiagnosticSeverity.Information
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent has ruleId', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'has ruleId')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        code: 'test-rule',
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'has ruleId',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent has source', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'has source')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'has source',
-        source: 'test-source',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent has url', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'has url')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        codeDescription: {
-          href: 'https://example.com'
-        },
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'has url',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent has error', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'has error')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'Test error',
-        severity: DiagnosticSeverity.Error
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidChangeContent expected', async (t) => {
-  const uri = String(pathToFileURL('test.md'))
-  const diagnostics = await getDiagnostic(uri, 'expected')
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: [
-      {
-        data: {expected: ['suggestion']},
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        message: 'expected',
-        severity: DiagnosticSeverity.Warning
-      }
-    ]
-  })
-
-  t.end()
-})
-
-test('onDidClose', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const uri = String(pathToFileURL('test.md'))
-  const diagnosticsPromise = new Promise((resolve) => {
-    const sendDiagnostics = /** @type import('sinon').SinonStub */ (
-      connection.sendDiagnostics
-    )
-    sendDiagnostics.callsFake(resolve)
-  })
-  const onDidClose = spy()
-  Object.defineProperty(documents, 'onDidClose', {
-    value: onDidClose
-  })
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.js']
-  })
-
-  onDidClose.firstCall.firstArg({
-    document: TextDocument.create(uri, 'text', 0, '')
-  })
-
-  const diagnostics = await diagnosticsPromise
-
-  t.deepEquals(diagnostics, {
-    uri,
-    version: 0,
-    diagnostics: []
-  })
-
-  t.end()
-})
-
-test('onDidChangeWatchedFiles', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const diagnosticsPromise = new Promise((resolve) => {
-    const sendDiagnostics = /** @type import('sinon').SinonStub */ (
-      connection.sendDiagnostics
-    )
-    sendDiagnostics.callsFake(() => {
-      if (sendDiagnostics.callCount === 2) {
-        resolve([
-          sendDiagnostics.firstCall.firstArg,
-          sendDiagnostics.lastCall.firstArg
-        ])
-      }
-    })
-  })
-  const uri1 = String(pathToFileURL('test1.md'))
-  const uri2 = String(pathToFileURL('test2.md'))
-
-  Object.defineProperty(documents, 'all', {
-    value: () => [
-      TextDocument.create(uri1, 'text', 0, 'has ruleId'),
-      TextDocument.create(uri2, 'text', 0, 'has source')
-    ]
-  })
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.js']
-  })
-
-  const onDidChangeWatchedFiles = /** @type import('sinon').SinonSpy */ (
-    connection.onDidChangeWatchedFiles
-  )
-  onDidChangeWatchedFiles.firstCall.firstArg()
-  const diagnostics = await diagnosticsPromise
-
-  t.deepEquals(diagnostics, [
-    {
-      uri: uri1,
-      version: 0,
-      diagnostics: [
-        {
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-          message: 'has ruleId',
-          code: 'test-rule',
-          severity: DiagnosticSeverity.Warning
-        }
-      ]
-    },
-    {
-      uri: uri2,
-      version: 0,
-      diagnostics: [
-        {
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-          message: 'has source',
-          source: 'test-source',
-          severity: DiagnosticSeverity.Warning
-        }
-      ]
-    }
-  ])
-
-  t.end()
-})
-
-test('onCodeAction not found', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.js']
-  })
-
-  const onCodeAction = /** @type import('sinon').SinonSpy */ (
-    connection.onCodeAction
-  )
-  const codeActions = onCodeAction.firstCall.firstArg({
-    textDocument: {uri: 'file:///non-existent.txt'}
-  })
-
-  t.equals(codeActions, undefined)
-})
-
-test('onCodeAction diagnostics', async (t) => {
-  const connection = createMockConnection()
-  const documents = new TextDocuments(TextDocument)
-  const uri = String(pathToFileURL('test.txt'))
-
-  Object.defineProperty(documents, 'get', {
-    value: () => TextDocument.create(uri, 'text', 0, 'invalid')
-  })
-
-  configureUnifiedLanguageServer(connection, documents, {
-    plugins: ['./test/test-plugin.js']
-  })
-
-  const onCodeAction = /** @type import('sinon').SinonSpy */ (
-    connection.onCodeAction
-  )
-  const codeActions = onCodeAction.firstCall.firstArg({
-    textDocument: {uri},
-    context: {
-      diagnostics: [
-        {},
-        {data: null},
-        {
-          data: {expected: ['text to insert']},
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}}
-        },
-        {
-          data: {expected: ['replacement text']},
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 7}}
-        },
-        {
-          data: {expected: ['']},
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 7}}
-        }
-      ]
-    }
-  })
-
-  t.deepEquals(codeActions, [
-    {
-      title: 'Insert `text to insert`',
-      kind: CodeActionKind.QuickFix,
-      edit: {
-        changes: {
-          [uri]: [
-            {
-              newText: 'text to insert',
-              range: {
-                start: {line: 0, character: 0},
-                end: {line: 0, character: 0}
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      title: 'Replace `invalid` with `replacement text`',
-      kind: CodeActionKind.QuickFix,
-      edit: {
-        changes: {
-          [uri]: [
-            {
-              newText: 'replacement text',
-              range: {
-                start: {line: 0, character: 0},
-                end: {line: 0, character: 7}
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      title: 'Remove `invalid`',
-      kind: CodeActionKind.QuickFix,
-      edit: {
-        changes: {
-          [uri]: [
-            {
-              newText: '',
-              range: {
-                start: {line: 0, character: 0},
-                end: {line: 0, character: 7}
-              }
-            }
-          ]
-        }
-      }
-    }
-  ])
-})
+const delay = process.platform === 'win32' ? 600 : 300
+const timeout = 10_000
 
 test('exports', (t) => {
-  t.equal(exports.createUnifiedLanguageServer, createUnifiedLanguageServer)
+  t.equal(typeof exports.createUnifiedLanguageServer, 'function')
 
   t.end()
 })
+
+test('`initialize`', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['remark.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 1, 'should emit messages')
+    const parameters = messages[0].result
+
+    t.deepEqual(
+      parameters,
+      {
+        capabilities: {
+          textDocumentSync: 1,
+          documentFormattingProvider: true,
+          codeActionProvider: {
+            codeActionKinds: ['quickfix'],
+            resolveProvider: true
+          }
+        }
+      },
+      'should emit an introduction on `initialize`'
+    )
+  }
+
+  t.end()
+})
+
+test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['remark-with-warnings.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didClose',
+      /** @type {import('vscode-languageserver').DidCloseTextDocumentParams} */
+      params: {textDocument: {uri: new URL('lsp.md', import.meta.url).href}}
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 3, 'should emit messages')
+    const open =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+    const close =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[2].params
+      )
+
+    t.deepEqual(
+      open.diagnostics,
+      [
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 4}},
+          message: 'info',
+          severity: 3
+        },
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 4}},
+          message: 'warning',
+          severity: 2
+        },
+        {
+          range: {start: {line: 0, character: 2}, end: {line: 0, character: 4}},
+          message: 'error',
+          severity: 1,
+          code: 'a',
+          source: 'b',
+          codeDescription: {href: 'd'},
+          data: {expected: ['hello']}
+        },
+        {
+          range: {start: {line: 1, character: 2}, end: {line: 1, character: 3}},
+          message: 'node',
+          severity: 2
+        },
+        {
+          range: {start: {line: 1, character: 2}, end: {line: 1, character: 3}},
+          message: 'position',
+          severity: 2
+        },
+        {
+          range: {start: {line: 1, character: 2}, end: {line: 1, character: 2}},
+          message: 'point',
+          severity: 2
+        },
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+          message: 'nothing',
+          severity: 2
+        }
+      ],
+      'should emit diagnostics on `textDocument/didOpen`'
+    )
+
+    t.deepEqual(
+      close.diagnostics,
+      [],
+      'should emit empty diagnostics on `textDocument/didClose`'
+    )
+  }
+
+  t.end()
+})
+
+test('`textDocument/formatting`', async (t) => {
+  const stdin = new PassThrough()
+
+  const promise = execa('node', ['remark.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('bad.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '   #   hi  \n'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('good.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi\n'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/formatting',
+      id: 1,
+      /** @type {import('vscode-languageserver').DocumentFormattingParams} */
+      params: {
+        textDocument: {uri: new URL('bad.md', import.meta.url).href},
+        options: {tabSize: 2, insertSpaces: true}
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/formatting',
+      id: 2,
+      /** @type {import('vscode-languageserver').DocumentFormattingParams} */
+      params: {
+        textDocument: {uri: new URL('good.md', import.meta.url).href},
+        options: {tabSize: 2, insertSpaces: true}
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 5, 'should emit messages')
+    // First two are empty diagnostics.
+    // Third and fourth are the bad/good reformatting.
+    t.deepEqual(
+      messages[3].result,
+      [
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 1, character: 0}},
+          newText: '# hi\n'
+        }
+      ],
+      'should format bad documents on `textDocument/formatting`'
+    )
+    t.deepEqual(
+      messages[4].result,
+      null,
+      'should format good documents on `textDocument/formatting`'
+    )
+  }
+
+  t.end()
+})
+
+test('`workspace/didChangeWatchedFiles`', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['remark.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('a.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'workspace/didChangeWatchedFiles',
+      /** @type {import('vscode-languageserver').DidChangeWatchedFilesParams} */
+      params: {
+        changes: [
+          {uri: new URL('a.md', import.meta.url).href, type: 1},
+          {uri: new URL('b.md', import.meta.url).href, type: 2},
+          {uri: new URL('c.md', import.meta.url).href, type: 3}
+        ]
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 3, 'should emit messages')
+    t.deepEqual(
+      messages[1].params,
+      messages[2].params,
+      'should emit diagnostics for registered files on any `workspace/didChangeWatchedFiles`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['remark-with-error.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+
+    t.deepEqual(
+      parameters.diagnostics.map(({message, ...rest}) => ({
+        message: cleanStack(message, 3),
+        ...rest
+      })),
+      [
+        {
+          message:
+            'Error: Whoops!\n    at Function.oneError (one-error.js:1:1)\n    at Function.freeze (index.js:1:1)',
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+          severity: 1
+        }
+      ],
+      'should show stack traces on crashes'
+    )
+  }
+
+  t.end()
+})
+
+test('`textDocument/codeAction` (and diagnostics)', async (t) => {
+  const uri = new URL('lsp.md', import.meta.url).href
+  const stdin = new PassThrough()
+
+  const promise = execa('node', ['remark.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri,
+          languageId: 'markdown',
+          version: 1,
+          text: '## hello'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/codeAction',
+      id: 1,
+      /** @type {import('vscode-languageserver').CodeActionParams} */
+      params: {
+        textDocument: {uri},
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        context: {
+          diagnostics: [
+            // Coverage for warnings w/o `data` (which means a message w/o `expected`).
+            {
+              message: 'warning',
+              severity: 2,
+              range: {
+                start: {line: 0, character: 3},
+                end: {line: 0, character: 0}
+              }
+            },
+            {
+              message: 'warning',
+              severity: 2,
+              data: {},
+              range: {
+                start: {line: 0, character: 3},
+                end: {line: 0, character: 8}
+              }
+            },
+            // Replacement:
+            {
+              message: 'warning',
+              severity: 2,
+              data: {expected: ['Hello']},
+              range: {
+                start: {line: 0, character: 3},
+                end: {line: 0, character: 8}
+              }
+            },
+            // Insertion (start and end in the same place):
+            {
+              message: 'warning',
+              severity: 2,
+              data: {expected: ['!']},
+              range: {
+                start: {line: 0, character: 8},
+                end: {line: 0, character: 8}
+              }
+            },
+            // Deletion (empty `expected`):
+            {
+              message: 'warning',
+              severity: 2,
+              data: {expected: ['']},
+              range: {
+                start: {line: 0, character: 1},
+                end: {line: 0, character: 2}
+              }
+            }
+          ]
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+
+    t.deepEqual(
+      messages,
+      [
+        {
+          jsonrpc: '2.0',
+          id: 0,
+          result: {
+            capabilities: {
+              textDocumentSync: 1,
+              documentFormattingProvider: true,
+              codeActionProvider: {
+                codeActionKinds: ['quickfix'],
+                resolveProvider: true
+              }
+            }
+          }
+        },
+        {
+          jsonrpc: '2.0',
+          method: 'textDocument/publishDiagnostics',
+          params: {uri, version: 1, diagnostics: []}
+        },
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          result: [
+            {
+              title: 'Replace `hello` with `Hello`',
+              edit: {
+                changes: {
+                  [uri]: [
+                    {
+                      range: {
+                        start: {line: 0, character: 3},
+                        end: {line: 0, character: 8}
+                      },
+                      newText: 'Hello'
+                    }
+                  ]
+                }
+              },
+              kind: 'quickfix'
+            },
+            {
+              title: 'Insert `!`',
+              edit: {
+                changes: {
+                  [uri]: [
+                    {
+                      range: {
+                        start: {line: 0, character: 8},
+                        end: {line: 0, character: 8}
+                      },
+                      newText: '!'
+                    }
+                  ]
+                }
+              },
+              kind: 'quickfix'
+            },
+            {
+              title: 'Remove `#`',
+              edit: {
+                changes: {
+                  [uri]: [
+                    {
+                      range: {
+                        start: {line: 0, character: 1},
+                        end: {line: 0, character: 2}
+                      },
+                      newText: ''
+                    }
+                  ]
+                }
+              },
+              kind: 'quickfix'
+            }
+          ]
+        }
+      ],
+      'should emit quick fixes on a `textDocument/codeAction`'
+    )
+  }
+
+  t.end()
+})
+
+/**
+ * @param {string} data
+ * @returns {Array<Record<string, unknown>>}
+ */
+function fromMessages(data) {
+  return data
+    .replace(/\r?\n/g, '\n')
+    .split(/Content-Length: \d+\n{2}/g)
+    .filter(Boolean)
+    .map((d) => JSON.parse(d))
+}
+
+/**
+ * @param {unknown} data
+ */
+function toMessage(data) {
+  const content = Buffer.from(JSON.stringify(data))
+  return Buffer.concat([
+    Buffer.from('Content-Length: ' + content.length + '\r\n\r\n'),
+    content
+  ])
+}
+
+/**
+ * @param {string} stack
+ * @param {number} max
+ * @returns {string}
+ */
+function cleanStack(stack, max) {
+  return stack
+    .replace(/\(.+\//g, '(')
+    .replace(/\d+:\d+/g, '1:1')
+    .split('\n')
+    .slice(0, max)
+    .join('\n')
+}
