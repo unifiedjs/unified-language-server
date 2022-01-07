@@ -177,7 +177,7 @@ Language servers created using this package implement the following language
 server features:
 
 *   `textDocument/codeAction`
-    — The language server implements code actions based on the `expected` field
+    — the language server implements code actions based on the `expected` field
     on reported messages.
     A code action can either insert, replace, or delete text based on the range
     of the message and the expected value.
@@ -199,9 +199,9 @@ server features:
     — when document formatting is requested by the client, the language server
     processes it using a unified pipeline.
     The stringified result is returned.
-*   `workspace/didChangeWatchedFiles`
-    — When the client signals a watched file has changed, the language server
-    processes all open files using a unified pipeline.
+*   `workspace/didChangeWatchedFiles` and `workspace/didChangeWorkspaceFolders`
+    — when the client signals a watched file or workspace has changed, the
+    language server processes all open files using a unified pipeline.
     Any messages collected are published to the client using
     `textDocument/publishDiagnostics`.
 
@@ -213,7 +213,8 @@ As of now, that is Node.js 12.20+, 14.14+, and 16.0+.
 Our projects sometimes work with older versions, but this is not guaranteed.
 
 This project uses [`vscode-languageserver`][vscode-languageserver] 7, which
-implements language server protocol 3.16.
+implements language server protocol 3.16.0.
+It should work anywhere where LSP 3.6.0 or later is implemented.
 
 ## Related
 

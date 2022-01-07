@@ -69,6 +69,9 @@ test('`initialize`', async (t) => {
           codeActionProvider: {
             codeActionKinds: ['quickfix'],
             resolveProvider: true
+          },
+          workspace: {
+            workspaceFolders: {supported: true, changeNotifications: true}
           }
         }
       },
@@ -339,7 +342,7 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
         /(imported from )[^\r\n]+/,
         '$1zzz'
       ),
-      "Error: Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
+      "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
       'should work w/ `defaultProcessor`'
     )
   }
@@ -751,6 +754,9 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
               codeActionProvider: {
                 codeActionKinds: ['quickfix'],
                 resolveProvider: true
+              },
+              workspace: {
+                workspaceFolders: {supported: true, changeNotifications: true}
               }
             }
           }
@@ -819,6 +825,314 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
         }
       ],
       'should emit quick fixes on a `textDocument/codeAction`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize` w/ nothing', async (t) => {
+  const stdin = new PassThrough()
+  const cwd = new URL('.', import.meta.url)
+  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
+    cwd: fileURLToPath(cwd),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+    const info = parameters.diagnostics[0]
+    t.ok(info, 'should emit the cwd')
+    t.deepEqual(
+      info.message,
+      fileURLToPath(cwd).slice(0, -1),
+      'should default to a `cwd` of `process.cwd()`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize` w/ `rootUri`', async (t) => {
+  const stdin = new PassThrough()
+  const cwd = new URL('./folder/', import.meta.url)
+  const processCwd = new URL('..', cwd)
+  const promise = execa('node', ['folder/remark-with-cwd.js', '--stdio'], {
+    cwd: fileURLToPath(processCwd),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: cwd.href,
+        capabilities: {},
+        workspaceFolders: []
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', cwd).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+    const info = parameters.diagnostics[0]
+    t.ok(info, 'should emit the cwd')
+    t.deepEqual(
+      info.message,
+      fileURLToPath(cwd).slice(0, -1),
+      'should use `rootUri`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize` w/ `workspaceFolders`', async (t) => {
+  const stdin = new PassThrough()
+  const processCwd = new URL('.', import.meta.url)
+  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
+    cwd: fileURLToPath(processCwd),
+    input: stdin,
+    timeout
+  })
+
+  const otherCwd = new URL('./folder/', processCwd)
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: [
+          {uri: processCwd.href, name: ''}, // Farthest
+          {uri: otherCwd.href, name: ''} // Nearest
+        ]
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', otherCwd).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+    const info = parameters.diagnostics[0]
+    t.ok(info, 'should emit the cwd')
+    t.deepEqual(
+      info.message,
+      fileURLToPath(otherCwd).slice(0, -1),
+      'should use `workspaceFolders`'
+    )
+  }
+
+  t.end()
+})
+
+test('`workspace/didChangeWorkspaceFolders`', async (t) => {
+  const stdin = new PassThrough()
+  const processCwd = new URL('.', import.meta.url)
+  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
+    cwd: fileURLToPath(processCwd),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {workspace: {workspaceFolders: true}},
+        workspaceFolders: [{uri: processCwd.href, name: ''}]
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  const otherCwd = new URL('./folder/', processCwd)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', otherCwd).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'workspace/didChangeWorkspaceFolders',
+      /** @type {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} */
+      params: {event: {added: [{uri: otherCwd.href, name: ''}], removed: []}}
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'workspace/didChangeWorkspaceFolders',
+      /** @type {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} */
+      params: {
+        event: {added: [], removed: [{uri: otherCwd.href, name: ''}]}
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.deepEqual(
+      messages
+        .filter((d) => d.method === 'textDocument/publishDiagnostics')
+        .flatMap((d) => {
+          const parameters =
+            /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+              d.params
+            )
+          return parameters.diagnostics
+        })
+        .map((d) => d.message),
+      [
+        fileURLToPath(processCwd).slice(0, -1),
+        fileURLToPath(otherCwd).slice(0, -1),
+        fileURLToPath(processCwd).slice(0, -1)
+      ],
+      'should support `workspaceFolders`'
     )
   }
 
