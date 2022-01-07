@@ -93,8 +93,10 @@ createUnifiedLanguageServer({
   ignoreName: '.remarkignore',
   packageField: 'remarkConfig',
   pluginPrefix: 'remark',
-  processor: remark,
-  rcName: '.remarkrc'
+  rcName: '.remarkrc',
+  processorName: 'remark',
+  processorSpecifier: 'remark',
+  defaultProcessor: remark
 })
 ```
 
@@ -111,28 +113,47 @@ Create a language server for a unified ecosystem.
 
 Configuration for `unified-engine` and the language server.
 
+###### `options.processorName`
+
+The package ID of the expected processor (`string`, required, example:
+`'remark'`).
+Will be loaded from the local workspace.
+
+###### `options.processorSpecifier`
+
+The specifier to get the processor on the resolved module (`string`, optional,
+default: `'default'`).
+For example, remark uses the specifier `remark` to expose its processor and
+a default export can be requested by passing `'default'` (the default).
+
+###### `options.defaultProcessor`
+
+Optional fallback processor to use if `processorName` can’t be found
+locally in `node_modules` ([`Unified`][unified], optional).
+This can be used to ship a processor with your package, to be used if no
+processor is found locally.
+If this isn’t passed, a warning is shown if `processorName` can’t be found.
+
 ###### `options.ignoreName`
 
-Name of ignore files to load (`string`, optional)
+Name of ignore files to load (`string`, optional).
 
 ###### `options.packageField`
 
 Property at which configuration can be found in package.json files (`string`,
-optional)
+optional).
 
 ###### `options.pluginPrefix`
 
-Optional prefix to use when searching for plugins (`string`, optional)
+Optional prefix to use when searching for plugins (`string`, optional).
 
 ###### `options.plugins`
 
-Plugins to use by default (`Array|Object`, optional)
-
-Typically this contains 2 plugins named `*-parse` and `*-stringify`.
+Plugins to use by default (`Array|Object`, optional).
 
 ###### `options.rcName`
 
-Name of configuration files to load (`string`, optional)
+Name of configuration files to load (`string`, optional).
 
 ## Examples
 

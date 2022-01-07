@@ -1,5 +1,7 @@
 import {createUnifiedLanguageServer} from '../index.js'
 
 createUnifiedLanguageServer({
-  plugins: ['remark-parse', 'remark-stringify', './lots-of-warnings.js']
+  processorName: 'remark',
+  processorSpecifier: 'remark',
+  plugins: ['./lots-of-warnings.js']
 })
