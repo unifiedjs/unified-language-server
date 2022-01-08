@@ -205,6 +205,148 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
   t.end()
 })
 
+test('uninstalled processor so `window/showMessageRequest`', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['missing-package.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters = messages[1].params
+
+    t.deepEqual(
+      parameters,
+      {
+        type: 3,
+        message:
+          'Cannot turn on language server without `xxx-missing-yyy` locally. Run `npm install xxx-missing-yyy` to enable it',
+        actions: []
+      },
+      'should emit a `window/showMessageRequest` when the processor can’t be found locally'
+    )
+  }
+
+  t.end()
+})
+
+test('uninstalled processor w/ `defaultProcessor`', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa(
+    'node',
+    ['missing-package-with-default.js', '--stdio'],
+    {
+      cwd: fileURLToPath(new URL('.', import.meta.url)),
+      input: stdin,
+      timeout
+    }
+  )
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('lsp.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 3, 'should emit messages')
+
+    const parameters =
+      /** @type {import('vscode-languageserver').LogMessageParams} */ (
+        messages[1].params
+      )
+
+    t.deepEqual(
+      cleanStack(parameters.message, 2).replace(
+        /(imported from )[^\r\n]+/,
+        '$1zzz'
+      ),
+      "Error: Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
+      'should work w/ `defaultProcessor`'
+    )
+  }
+
+  t.end()
+})
+
 test('`textDocument/formatting`', async (t) => {
   const stdin = new PassThrough()
 

@@ -1,6 +1,5 @@
 import {createUnifiedLanguageServer} from '../index.js'
 
 createUnifiedLanguageServer({
-  processorName: 'remark',
-  processorSpecifier: 'remark'
+  processorName: 'xxx-missing-yyy'
 })
