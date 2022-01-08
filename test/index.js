@@ -335,11 +335,11 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
       )
 
     t.deepEqual(
-      cleanStack(parameters.message, 3).replace(
+      cleanStack(parameters.message, 2).replace(
         /(imported from )[^\r\n]+/,
         '$1zzz'
       ),
-      "Error: Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz\n    at new NodeError (errors.js:1:1)",
+      "Error: Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
       'should work w/ `defaultProcessor`'
     )
   }
