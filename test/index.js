@@ -327,13 +327,21 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
   } catch (error) {
     const exception = /** @type {ExecError} */ (error)
     const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
+    t.equal(messages.length, 3, 'should emit messages')
+
     const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+      /** @type {import('vscode-languageserver').LogMessageParams} */ (
         messages[1].params
       )
 
-    t.deepEqual(parameters.diagnostics, [], 'should work w/ `defaultProcessor`')
+    t.deepEqual(
+      cleanStack(parameters.message, 3).replace(
+        /(imported from )[^\r\n]+/,
+        '$1zzz'
+      ),
+      "Error: Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz\n    at new NodeError (errors.js:1:1)",
+      'should work w/ `defaultProcessor`'
+    )
   }
 
   t.end()
