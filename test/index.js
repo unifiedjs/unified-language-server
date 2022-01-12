@@ -15,7 +15,7 @@ import * as exports from 'unified-language-server'
 
 const sleep = promisify(setTimeout)
 
-const delay = process.platform === 'win32' ? 600 : 300
+const delay = process.platform === 'win32' ? 800 : 400
 const timeout = 10_000
 
 test('exports', (t) => {
