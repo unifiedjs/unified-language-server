@@ -30,5 +30,8 @@ export default function lotsOfWarnings() {
     })
     file.message('point', {line: 2, column: 3})
     file.message('nothing')
+    Object.assign(file.message('note'), {
+      note: 'These are some additional notes'
+    })
   }
 }
