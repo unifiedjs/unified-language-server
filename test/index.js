@@ -15,7 +15,7 @@ import * as exports from 'unified-language-server'
 
 const sleep = promisify(setTimeout)
 
-const delay = process.platform === 'win32' ? 600 : 300
+const delay = process.platform === 'win32' ? 800 : 400
 const timeout = 10_000
 
 test('exports', (t) => {
@@ -41,6 +41,61 @@ test('`initialize`', async (t) => {
         processId: null,
         rootUri: null,
         capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 1, 'should emit messages')
+    const parameters = messages[0].result
+
+    t.deepEqual(
+      parameters,
+      {
+        capabilities: {
+          textDocumentSync: 1,
+          documentFormattingProvider: true,
+          codeActionProvider: {
+            codeActionKinds: ['quickfix'],
+            resolveProvider: true
+          }
+        }
+      },
+      'should emit an introduction on `initialize`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize` workspace capabilities', async (t) => {
+  const stdin = new PassThrough()
+  const promise = execa('node', ['remark.js', '--stdio'], {
+    cwd: fileURLToPath(new URL('.', import.meta.url)),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {workspace: {workspaceFolders: true}},
         workspaceFolders: null
       }
     })
@@ -754,9 +809,6 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
               codeActionProvider: {
                 codeActionKinds: ['quickfix'],
                 resolveProvider: true
-              },
-              workspace: {
-                workspaceFolders: {supported: true, changeNotifications: true}
               }
             }
           }
@@ -1061,6 +1113,16 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
         capabilities: {workspace: {workspaceFolders: true}},
         workspaceFolders: [{uri: processCwd.href, name: ''}]
       }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'initialized',
+      /** @type {import('vscode-languageserver').InitializedParams} */
+      params: {}
     })
   )
 
