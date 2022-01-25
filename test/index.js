@@ -248,6 +248,11 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
           range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
           message: 'nothing',
           severity: 2
+        },
+        {
+          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+          message: 'note\nThese are some additional notes',
+          severity: 2
         }
       ],
       'should emit diagnostics on `textDocument/didOpen`'
