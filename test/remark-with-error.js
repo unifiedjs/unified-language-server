@@ -3,5 +3,6 @@ import {createUnifiedLanguageServer} from '../index.js'
 createUnifiedLanguageServer({
   processorName: 'remark',
   processorSpecifier: 'remark',
-  plugins: ['./one-error.js']
+  // This is resolved from the directory containing package.json
+  plugins: ['./test/one-error.js']
 })

@@ -890,8 +890,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
 
 test('`initialize` w/ nothing', async (t) => {
   const stdin = new PassThrough()
-  const cwd = new URL('.', import.meta.url)
-  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
+  const cwd = new URL('..', import.meta.url)
+  const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
     cwd: fileURLToPath(cwd),
     input: stdin,
     timeout
