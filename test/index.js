@@ -889,7 +889,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   t.end()
 })
 
-test('`initialize` w/ nothing find package.json', async (t) => {
+test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
   const stdin = new PassThrough()
   const cwd = new URL('..', import.meta.url)
   const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
@@ -953,14 +953,14 @@ test('`initialize` w/ nothing find package.json', async (t) => {
     t.deepEqual(
       info.message,
       fileURLToPath(new URL('folder-with-package-json', import.meta.url).href),
-      'should default to a `cwd` of `process.cwd()`'
+      'should default to a `cwd` of the parent folder of the closest `package.json`'
     )
   }
 
   t.end()
 })
 
-test('`initialize` w/ nothing find .git', async (t) => {
+test('`initialize` w/ nothing (find closest `.git`)', async (t) => {
   const stdin = new PassThrough()
   const cwd = new URL('..', import.meta.url)
   await fs.mkdir(new URL('folder-with-git/.git', import.meta.url), {
@@ -1024,7 +1024,7 @@ test('`initialize` w/ nothing find .git', async (t) => {
     t.deepEqual(
       info.message,
       fileURLToPath(new URL('folder-with-git', import.meta.url).href),
-      'should default to a `cwd` of `process.cwd()`'
+      'should default to a `cwd` of the parent folder of the closest `.git`'
     )
   }
 
