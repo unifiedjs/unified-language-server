@@ -1,10 +1,18 @@
 /**
  * @typedef {import('node:child_process').ExecException & {stdout: string, stderr: string}} ExecError
+ * @typedef {import('vscode-jsonrpc').MessageConnection} MessageConnection
+ * @typedef {import('vscode-languageserver').DidCloseTextDocumentParams} DidCloseTextDocumentParams
+ * @typedef {import('vscode-languageserver').DidOpenTextDocumentParams} DidOpenTextDocumentParams
+ * @typedef {import('vscode-languageserver').InitializeParams} InitializeParams
+ * @typedef {import('vscode-languageserver').InitializeResult<never>} InitializeResult
+ * @typedef {import('vscode-languageserver').LogMessageParams} LogMessageParams
+ * @typedef {import('vscode-languageserver').PublishDiagnosticsParams} PublishDiagnosticsParams
  */
 
 import assert from 'node:assert'
 import {Buffer} from 'node:buffer'
 import {promises as fs} from 'node:fs'
+import {spawn} from 'node:child_process'
 import process from 'node:process'
 import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
@@ -13,6 +21,11 @@ import {execa} from 'execa'
 import test from 'tape'
 
 import * as exports from 'unified-language-server'
+import {
+  createMessageConnection,
+  StreamMessageReader,
+  StreamMessageWriter
+} from 'vscode-jsonrpc/node.js'
 
 const sleep = promisify(setTimeout)
 
@@ -26,191 +39,89 @@ test('exports', (t) => {
 })
 
 test('`initialize`', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['remark.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'remark.js', '.')
+  const initializeResponse = await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 1, 'should emit messages')
-    const parameters = messages[0].result
-
-    t.deepEqual(
-      parameters,
-      {
-        capabilities: {
-          textDocumentSync: 1,
-          documentFormattingProvider: true,
-          codeActionProvider: {
-            codeActionKinds: ['quickfix'],
-            resolveProvider: true
-          }
+  t.deepEqual(
+    initializeResponse,
+    {
+      capabilities: {
+        textDocumentSync: 1,
+        documentFormattingProvider: true,
+        codeActionProvider: {
+          codeActionKinds: ['quickfix'],
+          resolveProvider: true
         }
-      },
-      'should emit an introduction on `initialize`'
-    )
-  }
-
-  t.end()
+      }
+    },
+    'should emit an introduction on `initialize`'
+  )
 })
 
 test('`initialize` workspace capabilities', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['remark.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'remark.js', '.')
+
+  const initializeResponse = await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {workspace: {workspaceFolders: true}},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {workspace: {workspaceFolders: true}},
-        workspaceFolders: null
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 1, 'should emit messages')
-    const parameters = messages[0].result
-
-    t.deepEqual(
-      parameters,
-      {
-        capabilities: {
-          textDocumentSync: 1,
-          documentFormattingProvider: true,
-          codeActionProvider: {
-            codeActionKinds: ['quickfix'],
-            resolveProvider: true
-          },
-          workspace: {
-            workspaceFolders: {supported: true, changeNotifications: true}
-          }
+  t.deepEqual(
+    initializeResponse,
+    {
+      capabilities: {
+        textDocumentSync: 1,
+        documentFormattingProvider: true,
+        codeActionProvider: {
+          codeActionKinds: ['quickfix'],
+          resolveProvider: true
+        },
+        workspace: {
+          workspaceFolders: {supported: true, changeNotifications: true}
         }
-      },
-      'should emit an introduction on `initialize`'
-    )
-  }
-
-  t.end()
+      }
+    },
+    'should emit an introduction on `initialize`'
+  )
 })
 
 test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['remark-with-warnings.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'remark-with-warnings.js', '.')
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
+  const uri = new URL('lsp.md', import.meta.url).href
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  const openDiagnostics = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didClose',
-      /** @type {import('vscode-languageserver').DidCloseTextDocumentParams} */
-      params: {textDocument: {uri: new URL('lsp.md', import.meta.url).href}}
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 3, 'should emit messages')
-    const open =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-    const close =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[2].params
-      )
-
-    t.deepEqual(
-      open.diagnostics,
-      [
+  t.deepEqual(
+    await openDiagnostics,
+    {
+      uri,
+      version: 1,
+      diagnostics: [
         {
           range: {start: {line: 0, character: 0}, end: {line: 0, character: 4}},
           message: 'info',
@@ -255,18 +166,23 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
           message: 'note\nThese are some additional notes',
           severity: 2
         }
-      ],
-      'should emit diagnostics on `textDocument/didOpen`'
-    )
+      ]
+    },
+    'should emit diagnostics on `textDocument/didOpen`'
+  )
 
-    t.deepEqual(
-      close.diagnostics,
-      [],
-      'should emit empty diagnostics on `textDocument/didClose`'
-    )
-  }
+  const closeDiagnostics = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didClose',
+    /** @type {DidCloseTextDocumentParams} */
+    ({textDocument: {uri, version: 1}})
+  )
 
-  t.end()
+  t.deepEqual(
+    await closeDiagnostics,
+    {uri, version: 1, diagnostics: []},
+    'should emit empty diagnostics on `textDocument/didClose`'
+  )
 })
 
 test('uninstalled processor so `window/showMessageRequest`', async (t) => {
@@ -1316,4 +1232,72 @@ function cleanStack(stack, max) {
     .split('\n')
     .slice(0, max)
     .join('\n')
+}
+
+/**
+ * Start a language server.
+ *
+ * It will be cleaned up automatically.
+ *
+ * Any `window/logMessage` events emitted by the language server will be logged
+ * to the console.
+ *
+ * @param {test.Test} t The test context to use for cleanup.
+ * @param {string} serverFilePath The path to the language server relative to
+ * this test file.
+ * @param {string} cwd The cwd to use for the process relative to this test
+ * file.
+ * @returns a jsonrpc connection.
+ */
+function startLanguageServer(t, serverFilePath, cwd) {
+  const proc = spawn('node', [serverFilePath, '--stdio'], {
+    cwd: new URL(cwd, import.meta.url)
+  })
+  const connection = createMessageConnection(
+    new StreamMessageReader(proc.stdout),
+    new StreamMessageWriter(proc.stdin)
+  )
+  t.teardown(() => {
+    connection.end()
+  })
+  connection.onNotification(
+    'window/logMessage',
+    /**
+     * @param {LogMessageParams} message
+     */
+    ({message}) => {
+      console.dir(message)
+    }
+  )
+  connection.listen()
+  return connection
+}
+
+/**
+ * Initialize a language server in a type-safe manner.
+ *
+ * @param {MessageConnection} connection
+ * @param {InitializeParams} parameters
+ * @returns {Promise<InitializeResult>}
+ */
+async function initialize(connection, parameters) {
+  return connection.sendRequest('initialize', parameters)
+}
+
+/**
+ * Wait for a diagnostic to be omitted.
+ *
+ * @param {MessageConnection} connection
+ * @returns {Promise<PublishDiagnosticsParams>}
+ */
+async function createDiagnosticsPromise(connection) {
+  return new Promise((resolve) => {
+    const disposable = connection.onNotification(
+      'textDocument/publishDiagnostics',
+      (result) => {
+        disposable.dispose()
+        resolve(result)
+      }
+    )
+  })
 }
