@@ -4,6 +4,7 @@
 
 import assert from 'node:assert'
 import {Buffer} from 'node:buffer'
+import {promises as fs} from 'node:fs'
 import process from 'node:process'
 import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
@@ -15,7 +16,7 @@ import * as exports from 'unified-language-server'
 
 const sleep = promisify(setTimeout)
 
-const delay = process.platform === 'win32' ? 800 : 400
+const delay = process.platform === 'win32' ? 1000 : 400
 const timeout = 10_000
 
 test('exports', (t) => {
@@ -888,10 +889,10 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   t.end()
 })
 
-test('`initialize` w/ nothing', async (t) => {
+test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
   const stdin = new PassThrough()
-  const cwd = new URL('.', import.meta.url)
-  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
+  const cwd = new URL('..', import.meta.url)
+  const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
     cwd: fileURLToPath(cwd),
     input: stdin,
     timeout
@@ -919,7 +920,10 @@ test('`initialize` w/ nothing', async (t) => {
       /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
       params: {
         textDocument: {
-          uri: new URL('lsp.md', import.meta.url).href,
+          uri: new URL(
+            'folder-with-package-json/folder/file.md',
+            import.meta.url
+          ).href,
           languageId: 'markdown',
           version: 1,
           text: '# hi'
@@ -948,8 +952,79 @@ test('`initialize` w/ nothing', async (t) => {
     t.ok(info, 'should emit the cwd')
     t.deepEqual(
       info.message,
-      fileURLToPath(cwd).slice(0, -1),
-      'should default to a `cwd` of `process.cwd()`'
+      fileURLToPath(new URL('folder-with-package-json', import.meta.url).href),
+      'should default to a `cwd` of the parent folder of the closest `package.json`'
+    )
+  }
+
+  t.end()
+})
+
+test('`initialize` w/ nothing (find closest `.git`)', async (t) => {
+  const stdin = new PassThrough()
+  const cwd = new URL('..', import.meta.url)
+  await fs.mkdir(new URL('folder-with-git/.git', import.meta.url), {
+    recursive: true
+  })
+  const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
+    cwd: fileURLToPath(cwd),
+    input: stdin,
+    timeout
+  })
+
+  stdin.write(
+    toMessage({
+      method: 'initialize',
+      id: 0,
+      /** @type {import('vscode-languageserver').InitializeParams} */
+      params: {
+        processId: null,
+        rootUri: null,
+        capabilities: {},
+        workspaceFolders: null
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  stdin.write(
+    toMessage({
+      method: 'textDocument/didOpen',
+      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
+      params: {
+        textDocument: {
+          uri: new URL('folder-with-git/folder/file.md', import.meta.url).href,
+          languageId: 'markdown',
+          version: 1,
+          text: '# hi'
+        }
+      }
+    })
+  )
+
+  await sleep(delay)
+
+  assert(promise.stdout)
+  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+
+  try {
+    await promise
+    t.fail('should reject')
+  } catch (error) {
+    const exception = /** @type {ExecError} */ (error)
+    const messages = fromMessages(exception.stdout)
+    t.equal(messages.length, 2, 'should emit messages')
+    const parameters =
+      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
+        messages[1].params
+      )
+    const info = parameters.diagnostics[0]
+    t.ok(info, 'should emit the cwd')
+    t.deepEqual(
+      info.message,
+      fileURLToPath(new URL('folder-with-git', import.meta.url).href),
+      'should default to a `cwd` of the parent folder of the closest `.git`'
     )
   }
 
