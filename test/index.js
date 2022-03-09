@@ -1,12 +1,17 @@
 /**
  * @typedef {import('node:child_process').ExecException & {stdout: string, stderr: string}} ExecError
  * @typedef {import('vscode-jsonrpc').MessageConnection} MessageConnection
+ * @typedef {import('vscode-languageserver').CodeActionParams} CodeActionParams
+ * @typedef {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} DidChangeWorkspaceFoldersParams
  * @typedef {import('vscode-languageserver').DidCloseTextDocumentParams} DidCloseTextDocumentParams
  * @typedef {import('vscode-languageserver').DidOpenTextDocumentParams} DidOpenTextDocumentParams
+ * @typedef {import('vscode-languageserver').DocumentFormattingParams} DocumentFormattingParams
  * @typedef {import('vscode-languageserver').InitializeParams} InitializeParams
  * @typedef {import('vscode-languageserver').InitializeResult<never>} InitializeResult
+ * @typedef {import('vscode-languageserver').InitializedParams} InitializedParams
  * @typedef {import('vscode-languageserver').LogMessageParams} LogMessageParams
  * @typedef {import('vscode-languageserver').PublishDiagnosticsParams} PublishDiagnosticsParams
+ * @typedef {import('vscode-languageserver').ShowMessageRequestParams} ShowMessageRequestParams
  */
 
 import assert from 'node:assert'
@@ -102,7 +107,7 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
   })
   const uri = new URL('lsp.md', import.meta.url).href
 
-  const openDiagnostics = createDiagnosticsPromise(connection)
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
   connection.sendNotification(
     'textDocument/didOpen',
     /** @type {DidOpenTextDocumentParams} */
@@ -115,9 +120,10 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
       }
     })
   )
+  const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
-    await openDiagnostics,
+    openDiagnostics,
     {
       uri,
       version: 1,
@@ -171,922 +177,544 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
     'should emit diagnostics on `textDocument/didOpen`'
   )
 
-  const closeDiagnostics = createDiagnosticsPromise(connection)
+  const closeDiagnosticsPromise = createDiagnosticsPromise(connection)
   connection.sendNotification(
     'textDocument/didClose',
     /** @type {DidCloseTextDocumentParams} */
     ({textDocument: {uri, version: 1}})
   )
+  const closeDiagnostics = await closeDiagnosticsPromise
 
   t.deepEqual(
-    await closeDiagnostics,
+    closeDiagnostics,
     {uri, version: 1, diagnostics: []},
     'should emit empty diagnostics on `textDocument/didClose`'
   )
 })
 
 test('uninstalled processor so `window/showMessageRequest`', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['missing-package.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'missing-package.js', '.')
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  const messageRequestPromise = createMessageRequestPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
+  const messageRequest = await messageRequestPromise
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
+  t.deepEqual(
+    messageRequest,
+    {
+      type: 3,
+      message:
+        'Cannot turn on language server without `xxx-missing-yyy` locally. Run `npm install xxx-missing-yyy` to enable it',
+      actions: []
+    },
+    'should emit a `window/showMessageRequest` when the processor can’t be found locally'
   )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters = messages[1].params
-
-    t.deepEqual(
-      parameters,
-      {
-        type: 3,
-        message:
-          'Cannot turn on language server without `xxx-missing-yyy` locally. Run `npm install xxx-missing-yyy` to enable it',
-        actions: []
-      },
-      'should emit a `window/showMessageRequest` when the processor can’t be found locally'
-    )
-  }
-
-  t.end()
 })
 
 test('uninstalled processor w/ `defaultProcessor`', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa(
-    'node',
-    ['missing-package-with-default.js', '--stdio'],
-    {
-      cwd: fileURLToPath(new URL('.', import.meta.url)),
-      input: stdin,
-      timeout
-    }
+  const connection = startLanguageServer(
+    t,
+    'missing-package-with-default.js',
+    '.'
   )
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+
+  const logPromise = createLogPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
+  const log = await logPromise
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
+  t.deepEqual(
+    cleanStack(log.message, 2).replace(/(imported from )[^\r\n]+/, '$1zzz'),
+    "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
+    'should work w/ `defaultProcessor`'
   )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 3, 'should emit messages')
-
-    const parameters =
-      /** @type {import('vscode-languageserver').LogMessageParams} */ (
-        messages[1].params
-      )
-
-    t.deepEqual(
-      cleanStack(parameters.message, 2).replace(
-        /(imported from )[^\r\n]+/,
-        '$1zzz'
-      ),
-      "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
-      'should work w/ `defaultProcessor`'
-    )
-  }
-
-  t.end()
 })
 
 test('`textDocument/formatting`', async (t) => {
-  const stdin = new PassThrough()
+  const connection = startLanguageServer(t, 'remark.js', '.')
 
-  const promise = execa('node', ['remark.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('bad.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '   #   hi  \n'
       }
     })
   )
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('bad.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '   #   hi  \n'
-        }
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('good.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi\n'
       }
     })
   )
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('good.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi\n'
-        }
-      }
+  const resultBad = await connection.sendRequest(
+    'textDocument/formatting',
+    /** @type {DocumentFormattingParams} */
+    ({
+      textDocument: {uri: new URL('bad.md', import.meta.url).href},
+      options: {tabSize: 2, insertSpaces: true}
     })
   )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/formatting',
-      id: 1,
-      /** @type {import('vscode-languageserver').DocumentFormattingParams} */
-      params: {
-        textDocument: {uri: new URL('bad.md', import.meta.url).href},
-        options: {tabSize: 2, insertSpaces: true}
+  t.deepEqual(
+    resultBad,
+    [
+      {
+        range: {start: {line: 0, character: 0}, end: {line: 1, character: 0}},
+        newText: '# hi\n'
       }
-    })
+    ],
+    'should format bad documents on `textDocument/formatting`'
   )
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/formatting',
-      id: 2,
-      /** @type {import('vscode-languageserver').DocumentFormattingParams} */
-      params: {
-        textDocument: {uri: new URL('good.md', import.meta.url).href},
-        options: {tabSize: 2, insertSpaces: true}
-      }
+  const resultGood = await connection.sendRequest(
+    'textDocument/formatting',
+    /** @type {DocumentFormattingParams} */
+    ({
+      textDocument: {uri: new URL('good.md', import.meta.url).href},
+      options: {tabSize: 2, insertSpaces: true}
     })
   )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 5, 'should emit messages')
-    // First two are empty diagnostics.
-    // Third and fourth are the bad/good reformatting.
-    t.deepEqual(
-      messages[3].result,
-      [
-        {
-          range: {start: {line: 0, character: 0}, end: {line: 1, character: 0}},
-          newText: '# hi\n'
-        }
-      ],
-      'should format bad documents on `textDocument/formatting`'
-    )
-    t.deepEqual(
-      messages[4].result,
-      null,
-      'should format good documents on `textDocument/formatting`'
-    )
-  }
-
-  t.end()
+  t.deepEqual(
+    resultGood,
+    null,
+    'should format good documents on `textDocument/formatting`'
+  )
 })
 
 test('`workspace/didChangeWatchedFiles`', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['remark.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'remark.js', '.')
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('a.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
+  await openDiagnosticsPromise
 
-  await sleep(delay)
+  const changeWatchDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification('workspace/didChangeWatchedFiles', {changes: []})
+  const changeWatchDiagnostics = await changeWatchDiagnosticsPromise
 
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('a.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
+  t.deepEqual(
+    changeWatchDiagnostics,
+    {uri: new URL('a.md', import.meta.url).href, version: 1, diagnostics: []},
+    'should emit diagnostics for registered files on any `workspace/didChangeWatchedFiles`'
   )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'workspace/didChangeWatchedFiles',
-      /** @type {import('vscode-languageserver').DidChangeWatchedFilesParams} */
-      params: {
-        changes: [
-          {uri: new URL('a.md', import.meta.url).href, type: 1},
-          {uri: new URL('b.md', import.meta.url).href, type: 2},
-          {uri: new URL('c.md', import.meta.url).href, type: 3}
-        ]
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 3, 'should emit messages')
-    t.deepEqual(
-      messages[1].params,
-      messages[2].params,
-      'should emit diagnostics for registered files on any `workspace/didChangeWatchedFiles`'
-    )
-  }
-
-  t.end()
 })
 
 test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => {
-  const stdin = new PassThrough()
-  const promise = execa('node', ['remark-with-error.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  const connection = startLanguageServer(t, 'remark-with-error.js', '.')
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
+  const openDiagnostics = await openDiagnosticsPromise
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
+  t.deepEqual(
+    openDiagnostics.diagnostics.map(({message, ...rest}) => ({
+      message: cleanStack(message, 3),
+      ...rest
+    })),
+    [
+      {
+        message:
+          'Error: Whoops!\n    at Function.oneError (one-error.js:1:1)\n    at Function.freeze (index.js:1:1)',
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        severity: 1
       }
-    })
+    ],
+    'should show stack traces on crashes'
   )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-
-    t.deepEqual(
-      parameters.diagnostics.map(({message, ...rest}) => ({
-        message: cleanStack(message, 3),
-        ...rest
-      })),
-      [
-        {
-          message:
-            'Error: Whoops!\n    at Function.oneError (one-error.js:1:1)\n    at Function.freeze (index.js:1:1)',
-          range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-          severity: 1
-        }
-      ],
-      'should show stack traces on crashes'
-    )
-  }
-
-  t.end()
 })
 
 test('`textDocument/codeAction` (and diagnostics)', async (t) => {
+  const connection = startLanguageServer(t, 'remark.js', '.')
   const uri = new URL('lsp.md', import.meta.url).href
-  const stdin = new PassThrough()
 
-  const promise = execa('node', ['remark.js', '--stdio'], {
-    cwd: fileURLToPath(new URL('.', import.meta.url)),
-    input: stdin,
-    timeout
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri,
+        languageId: 'markdown',
+        version: 1,
+        text: '## hello'
       }
     })
   )
+  await openDiagnosticsPromise
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri,
-          languageId: 'markdown',
-          version: 1,
-          text: '## hello'
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/codeAction',
-      id: 1,
-      /** @type {import('vscode-languageserver').CodeActionParams} */
-      params: {
-        textDocument: {uri},
-        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-        context: {
-          diagnostics: [
-            // Coverage for warnings w/o `data` (which means a message w/o `expected`).
-            {
-              message: 'warning',
-              severity: 2,
-              range: {
-                start: {line: 0, character: 3},
-                end: {line: 0, character: 0}
-              }
-            },
-            {
-              message: 'warning',
-              severity: 2,
-              data: {},
-              range: {
-                start: {line: 0, character: 3},
-                end: {line: 0, character: 8}
-              }
-            },
-            // Replacement:
-            {
-              message: 'warning',
-              severity: 2,
-              data: {expected: ['Hello']},
-              range: {
-                start: {line: 0, character: 3},
-                end: {line: 0, character: 8}
-              }
-            },
-            // Insertion (start and end in the same place):
-            {
-              message: 'warning',
-              severity: 2,
-              data: {expected: ['!']},
-              range: {
-                start: {line: 0, character: 8},
-                end: {line: 0, character: 8}
-              }
-            },
-            // Deletion (empty `expected`):
-            {
-              message: 'warning',
-              severity: 2,
-              data: {expected: ['']},
-              range: {
-                start: {line: 0, character: 1},
-                end: {line: 0, character: 2}
-              }
+  const codeActions = await connection.sendRequest(
+    'textDocument/codeAction',
+    /** @type {CodeActionParams} */
+    ({
+      textDocument: {uri},
+      range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+      context: {
+        diagnostics: [
+          // Coverage for warnings w/o `data` (which means a message w/o `expected`).
+          {
+            message: 'warning',
+            severity: 2,
+            range: {
+              start: {line: 0, character: 3},
+              end: {line: 0, character: 0}
             }
-          ]
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-
-    t.deepEqual(
-      messages,
-      [
-        {
-          jsonrpc: '2.0',
-          id: 0,
-          result: {
-            capabilities: {
-              textDocumentSync: 1,
-              documentFormattingProvider: true,
-              codeActionProvider: {
-                codeActionKinds: ['quickfix'],
-                resolveProvider: true
-              }
+          },
+          {
+            message: 'warning',
+            severity: 2,
+            data: {},
+            range: {
+              start: {line: 0, character: 3},
+              end: {line: 0, character: 8}
+            }
+          },
+          // Replacement:
+          {
+            message: 'warning',
+            severity: 2,
+            data: {expected: ['Hello']},
+            range: {
+              start: {line: 0, character: 3},
+              end: {line: 0, character: 8}
+            }
+          },
+          // Insertion (start and end in the same place):
+          {
+            message: 'warning',
+            severity: 2,
+            data: {expected: ['!']},
+            range: {
+              start: {line: 0, character: 8},
+              end: {line: 0, character: 8}
+            }
+          },
+          // Deletion (empty `expected`):
+          {
+            message: 'warning',
+            severity: 2,
+            data: {expected: ['']},
+            range: {
+              start: {line: 0, character: 1},
+              end: {line: 0, character: 2}
             }
           }
-        },
-        {
-          jsonrpc: '2.0',
-          method: 'textDocument/publishDiagnostics',
-          params: {uri, version: 1, diagnostics: []}
-        },
-        {
-          jsonrpc: '2.0',
-          id: 1,
-          result: [
-            {
-              title: 'Replace `hello` with `Hello`',
-              edit: {
-                changes: {
-                  [uri]: [
-                    {
-                      range: {
-                        start: {line: 0, character: 3},
-                        end: {line: 0, character: 8}
-                      },
-                      newText: 'Hello'
-                    }
-                  ]
-                }
-              },
-              kind: 'quickfix'
-            },
-            {
-              title: 'Insert `!`',
-              edit: {
-                changes: {
-                  [uri]: [
-                    {
-                      range: {
-                        start: {line: 0, character: 8},
-                        end: {line: 0, character: 8}
-                      },
-                      newText: '!'
-                    }
-                  ]
-                }
-              },
-              kind: 'quickfix'
-            },
-            {
-              title: 'Remove `#`',
-              edit: {
-                changes: {
-                  [uri]: [
-                    {
-                      range: {
-                        start: {line: 0, character: 1},
-                        end: {line: 0, character: 2}
-                      },
-                      newText: ''
-                    }
-                  ]
-                }
-              },
-              kind: 'quickfix'
-            }
-          ]
-        }
-      ],
-      'should emit quick fixes on a `textDocument/codeAction`'
-    )
-  }
-
-  t.end()
-})
-
-test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
-  const stdin = new PassThrough()
-  const cwd = new URL('..', import.meta.url)
-  const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
-    cwd: fileURLToPath(cwd),
-    input: stdin,
-    timeout
-  })
-
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL(
-            'folder-with-package-json/folder/file.md',
-            import.meta.url
-          ).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-    const info = parameters.diagnostics[0]
-    t.ok(info, 'should emit the cwd')
-    t.deepEqual(
-      info.message,
-      fileURLToPath(new URL('folder-with-package-json', import.meta.url).href),
-      'should default to a `cwd` of the parent folder of the closest `package.json`'
-    )
-  }
-
-  t.end()
-})
-
-test('`initialize` w/ nothing (find closest `.git`)', async (t) => {
-  const stdin = new PassThrough()
-  const cwd = new URL('..', import.meta.url)
-  await fs.mkdir(new URL('folder-with-git/.git', import.meta.url), {
-    recursive: true
-  })
-  const promise = execa('node', ['./test/remark-with-cwd.js', '--stdio'], {
-    cwd: fileURLToPath(cwd),
-    input: stdin,
-    timeout
-  })
-
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: null
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('folder-with-git/folder/file.md', import.meta.url).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-    const info = parameters.diagnostics[0]
-    t.ok(info, 'should emit the cwd')
-    t.deepEqual(
-      info.message,
-      fileURLToPath(new URL('folder-with-git', import.meta.url).href),
-      'should default to a `cwd` of the parent folder of the closest `.git`'
-    )
-  }
-
-  t.end()
-})
-
-test('`initialize` w/ `rootUri`', async (t) => {
-  const stdin = new PassThrough()
-  const cwd = new URL('./folder/', import.meta.url)
-  const processCwd = new URL('..', cwd)
-  const promise = execa('node', ['folder/remark-with-cwd.js', '--stdio'], {
-    cwd: fileURLToPath(processCwd),
-    input: stdin,
-    timeout
-  })
-
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: cwd.href,
-        capabilities: {},
-        workspaceFolders: []
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', cwd).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-    const info = parameters.diagnostics[0]
-    t.ok(info, 'should emit the cwd')
-    t.deepEqual(
-      info.message,
-      fileURLToPath(cwd).slice(0, -1),
-      'should use `rootUri`'
-    )
-  }
-
-  t.end()
-})
-
-test('`initialize` w/ `workspaceFolders`', async (t) => {
-  const stdin = new PassThrough()
-  const processCwd = new URL('.', import.meta.url)
-  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
-    cwd: fileURLToPath(processCwd),
-    input: stdin,
-    timeout
-  })
-
-  const otherCwd = new URL('./folder/', processCwd)
-
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {},
-        workspaceFolders: [
-          {uri: processCwd.href, name: ''}, // Farthest
-          {uri: otherCwd.href, name: ''} // Nearest
         ]
       }
     })
   )
 
-  await sleep(delay)
+  t.deepEqual(
+    codeActions,
+    [
+      {
+        title: 'Replace `hello` with `Hello`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 3},
+                  end: {line: 0, character: 8}
+                },
+                newText: 'Hello'
+              }
+            ]
+          }
+        },
+        kind: 'quickfix'
+      },
+      {
+        title: 'Insert `!`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 8},
+                  end: {line: 0, character: 8}
+                },
+                newText: '!'
+              }
+            ]
+          }
+        },
+        kind: 'quickfix'
+      },
+      {
+        title: 'Remove `#`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 1},
+                  end: {line: 0, character: 2}
+                },
+                newText: ''
+              }
+            ]
+          }
+        },
+        kind: 'quickfix'
+      }
+    ],
+    'should emit quick fixes on a `textDocument/codeAction`'
+  )
+})
 
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', otherCwd).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
+test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
+  const cwd = new URL('..', import.meta.url)
+  const connection = startLanguageServer(
+    t,
+    'remark-with-cwd.js',
+    fileURLToPath(cwd)
+  )
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('folder-with-package-json/folder/file.md', import.meta.url)
+          .href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
+  const openDiagnostics = await openDiagnosticsPromise
 
-  await sleep(delay)
+  t.deepEqual(
+    openDiagnostics.diagnostics[0].message,
+    fileURLToPath(new URL('folder-with-package-json', import.meta.url).href),
+    'should default to a `cwd` of the parent folder of the closest `package.json`'
+  )
+})
 
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
+test('`initialize` w/ nothing (find closest `.git`)', async (t) => {
+  const cwd = new URL('..', import.meta.url)
+  const connection = startLanguageServer(
+    t,
+    'remark-with-cwd.js',
+    fileURLToPath(cwd)
+  )
+  await fs.mkdir(new URL('folder-with-git/.git', import.meta.url), {
+    recursive: true
+  })
 
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.equal(messages.length, 2, 'should emit messages')
-    const parameters =
-      /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-        messages[1].params
-      )
-    const info = parameters.diagnostics[0]
-    t.ok(info, 'should emit the cwd')
-    t.deepEqual(
-      info.message,
-      fileURLToPath(otherCwd).slice(0, -1),
-      'should use `workspaceFolders`'
-    )
-  }
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
 
-  t.end()
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('folder-with-git/folder/file.md', import.meta.url).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
+      }
+    })
+  )
+  const openDiagnostics = await openDiagnosticsPromise
+
+  t.deepEqual(
+    openDiagnostics.diagnostics[0].message,
+    fileURLToPath(new URL('folder-with-git', import.meta.url).href),
+    'should default to a `cwd` of the parent folder of the closest `.git`'
+  )
+})
+
+test('`initialize` w/ `rootUri`', async (t) => {
+  const cwd = new URL('folder/', import.meta.url)
+  const processCwd = new URL('..', cwd)
+  const connection = startLanguageServer(
+    t,
+    'remark-with-cwd.js',
+    fileURLToPath(processCwd)
+  )
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: cwd.href,
+    capabilities: {},
+    workspaceFolders: []
+  })
+
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', cwd).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
+      }
+    })
+  )
+  const openDiagnostics = await openDiagnosticsPromise
+
+  t.deepEqual(
+    openDiagnostics.diagnostics[0].message,
+    fileURLToPath(cwd).slice(0, -1),
+    'should use `rootUri`'
+  )
+})
+
+test('`initialize` w/ `workspaceFolders`', async (t) => {
+  const processCwd = new URL('.', import.meta.url)
+  const connection = startLanguageServer(
+    t,
+    'remark-with-cwd.js',
+    fileURLToPath(processCwd)
+  )
+
+  const otherCwd = new URL('folder/', processCwd)
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: [
+      {uri: processCwd.href, name: ''}, // Farthest
+      {uri: otherCwd.href, name: ''} // Nearest
+    ]
+  })
+
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', otherCwd).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
+      }
+    })
+  )
+  const openDiagnostics = await openDiagnosticsPromise
+
+  t.deepEqual(
+    openDiagnostics.diagnostics[0].message,
+    fileURLToPath(otherCwd).slice(0, -1),
+    'should use `workspaceFolders`'
+  )
 })
 
 test('`workspace/didChangeWorkspaceFolders`', async (t) => {
@@ -1250,9 +878,13 @@ function cleanStack(stack, max) {
  * @returns a jsonrpc connection.
  */
 function startLanguageServer(t, serverFilePath, cwd) {
-  const proc = spawn('node', [serverFilePath, '--stdio'], {
-    cwd: new URL(cwd, import.meta.url)
-  })
+  const proc = spawn(
+    'node',
+    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--stdio'],
+    {
+      cwd: new URL(cwd, import.meta.url)
+    }
+  )
   const connection = createMessageConnection(
     new StreamMessageReader(proc.stdout),
     new StreamMessageWriter(proc.stdin)
@@ -1285,18 +917,57 @@ async function initialize(connection, parameters) {
 }
 
 /**
+ * Wait for an event name to be omitted.
+ *
+ * @param {MessageConnection} connection
+ * @param {string} name
+ * @returns {Promise<any>}
+ */
+async function createNotificationPromise(connection, name) {
+  return new Promise((resolve) => {
+    const disposable = connection.onNotification(name, (result) => {
+      disposable.dispose()
+      setTimeout(() => resolve(result), 0)
+    })
+  })
+}
+
+/**
  * Wait for a diagnostic to be omitted.
  *
  * @param {MessageConnection} connection
  * @returns {Promise<PublishDiagnosticsParams>}
  */
 async function createDiagnosticsPromise(connection) {
+  return createNotificationPromise(
+    connection,
+    'textDocument/publishDiagnostics'
+  )
+}
+
+/**
+ * Wait for a diagnostic to be omitted.
+ *
+ * @param {MessageConnection} connection
+ * @returns {Promise<LogMessageParams>}
+ */
+async function createLogPromise(connection) {
+  return createNotificationPromise(connection, 'window/logMessage')
+}
+
+/**
+ * Wait for a show message request to be omitted.
+ *
+ * @param {MessageConnection} connection
+ * @returns {Promise<ShowMessageRequestParams>}
+ */
+async function createMessageRequestPromise(connection) {
   return new Promise((resolve) => {
-    const disposable = connection.onNotification(
-      'textDocument/publishDiagnostics',
+    const disposable = connection.onRequest(
+      'window/showMessageRequest',
       (result) => {
         disposable.dispose()
-        resolve(result)
+        setTimeout(() => resolve(result), 0)
       }
     )
   })
