@@ -812,9 +812,7 @@ function startLanguageServer(t, serverFilePath, cwd) {
   const proc = spawn(
     'node',
     [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--stdio'],
-    {
-      cwd: new URL(cwd, import.meta.url)
-    }
+    {cwd: fileURLToPath(new URL(cwd, import.meta.url))}
   )
   const connection = createMessageConnection(
     new StreamMessageReader(proc.stdout),
