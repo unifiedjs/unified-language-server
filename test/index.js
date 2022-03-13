@@ -18,6 +18,7 @@
 
 import {promises as fs} from 'node:fs'
 import {spawn} from 'node:child_process'
+import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
 import test from 'tape'
 
@@ -811,8 +812,14 @@ function cleanStack(stack, max) {
 function startLanguageServer(t, serverFilePath, cwd) {
   const proc = spawn(
     'node',
-    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--stdio'],
-    {cwd: fileURLToPath(new URL(cwd, import.meta.url))}
+    [
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        serverFilePath
+      ),
+      '--stdio'
+    ],
+    {cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd)}
   )
   const connection = createMessageConnection(
     new StreamMessageReader(proc.stdout),
