@@ -1,6 +1,7 @@
 /**
  * @typedef {import('node:child_process').ExecException & {stdout: string, stderr: string}} ExecError
  * @typedef {import('vscode-jsonrpc').MessageConnection} MessageConnection
+ * @typedef {import('vscode-languageserver').CodeAction} CodeAction
  * @typedef {import('vscode-languageserver').CodeActionParams} CodeActionParams
  * @typedef {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} DidChangeWorkspaceFoldersParams
  * @typedef {import('vscode-languageserver').DidCloseTextDocumentParams} DidCloseTextDocumentParams
@@ -12,6 +13,7 @@
  * @typedef {import('vscode-languageserver').LogMessageParams} LogMessageParams
  * @typedef {import('vscode-languageserver').PublishDiagnosticsParams} PublishDiagnosticsParams
  * @typedef {import('vscode-languageserver').ShowMessageRequestParams} ShowMessageRequestParams
+ * @typedef {import('vscode-languageserver').TextEdit} TextEdit
  */
 
 import {promises as fs} from 'node:fs'
@@ -290,6 +292,7 @@ test('`textDocument/formatting`', async (t) => {
     })
   )
 
+  /** @type {TextEdit} */
   const resultBad = await connection.sendRequest(
     'textDocument/formatting',
     /** @type {DocumentFormattingParams} */
@@ -309,6 +312,7 @@ test('`textDocument/formatting`', async (t) => {
     'should format bad documents on `textDocument/formatting`'
   )
 
+  /** @type {null} */
   const resultGood = await connection.sendRequest(
     'textDocument/formatting',
     /** @type {DocumentFormattingParams} */
@@ -428,6 +432,7 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   )
   await openDiagnosticsPromise
 
+  /** @type {CodeAction} */
   const codeActions = await connection.sendRequest(
     'textDocument/codeAction',
     /** @type {CodeActionParams} */
@@ -851,10 +856,16 @@ async function initialize(connection, parameters) {
  */
 async function createNotificationPromise(connection, name) {
   return new Promise((resolve) => {
-    const disposable = connection.onNotification(name, (result) => {
-      disposable.dispose()
-      setTimeout(() => resolve(result), 0)
-    })
+    const disposable = connection.onNotification(
+      name,
+      /**
+       * @param result {unknown}
+       */
+      (result) => {
+        disposable.dispose()
+        setTimeout(() => resolve(result), 0)
+      }
+    )
   })
 }
 
@@ -891,6 +902,9 @@ async function createMessageRequestPromise(connection) {
   return new Promise((resolve) => {
     const disposable = connection.onRequest(
       'window/showMessageRequest',
+      /**
+       * @param result {ShowMessageRequestParams}
+       */
       (result) => {
         disposable.dispose()
         setTimeout(() => resolve(result), 0)
