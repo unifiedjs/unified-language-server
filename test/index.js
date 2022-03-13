@@ -14,15 +14,9 @@
  * @typedef {import('vscode-languageserver').ShowMessageRequestParams} ShowMessageRequestParams
  */
 
-import assert from 'node:assert'
-import {Buffer} from 'node:buffer'
 import {promises as fs} from 'node:fs'
 import {spawn} from 'node:child_process'
-import process from 'node:process'
-import {PassThrough} from 'node:stream'
 import {URL, fileURLToPath} from 'node:url'
-import {promisify} from 'node:util'
-import {execa} from 'execa'
 import test from 'tape'
 
 import * as exports from 'unified-language-server'
@@ -31,11 +25,6 @@ import {
   StreamMessageReader,
   StreamMessageWriter
 } from 'vscode-jsonrpc/node.js'
-
-const sleep = promisify(setTimeout)
-
-const delay = process.platform === 'win32' ? 1000 : 400
-const timeout = 10_000
 
 test('exports', (t) => {
   t.equal(typeof exports.createUnifiedLanguageServer, 'function')
@@ -718,135 +707,72 @@ test('`initialize` w/ `workspaceFolders`', async (t) => {
 })
 
 test('`workspace/didChangeWorkspaceFolders`', async (t) => {
-  const stdin = new PassThrough()
+  t.timeoutAfter(3_600_000)
   const processCwd = new URL('.', import.meta.url)
-  const promise = execa('node', ['remark-with-cwd.js', '--stdio'], {
-    cwd: fileURLToPath(processCwd),
-    input: stdin,
-    timeout
+
+  const connection = startLanguageServer(
+    t,
+    'remark-with-cwd.js',
+    fileURLToPath(processCwd)
+  )
+
+  await initialize(connection, {
+    processId: null,
+    rootUri: null,
+    capabilities: {workspace: {workspaceFolders: true}},
+    workspaceFolders: [{uri: processCwd.href, name: ''}]
   })
 
-  stdin.write(
-    toMessage({
-      method: 'initialize',
-      id: 0,
-      /** @type {import('vscode-languageserver').InitializeParams} */
-      params: {
-        processId: null,
-        rootUri: null,
-        capabilities: {workspace: {workspaceFolders: true}},
-        workspaceFolders: [{uri: processCwd.href, name: ''}]
-      }
-    })
-  )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'initialized',
-      /** @type {import('vscode-languageserver').InitializedParams} */
-      params: {}
-    })
-  )
-
-  await sleep(delay)
+  await new Promise((resolve) => {
+    connection.onRequest('client/registerCapability', resolve)
+    connection.sendNotification('initialized', {})
+  })
 
   const otherCwd = new URL('./folder/', processCwd)
 
-  stdin.write(
-    toMessage({
-      method: 'textDocument/didOpen',
-      /** @type {import('vscode-languageserver').DidOpenTextDocumentParams} */
-      params: {
-        textDocument: {
-          uri: new URL('lsp.md', otherCwd).href,
-          languageId: 'markdown',
-          version: 1,
-          text: '# hi'
-        }
+  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'textDocument/didOpen',
+    /** @type {DidOpenTextDocumentParams} */
+    ({
+      textDocument: {
+        uri: new URL('lsp.md', otherCwd).href,
+        languageId: 'markdown',
+        version: 1,
+        text: '# hi'
       }
     })
   )
-
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'workspace/didChangeWorkspaceFolders',
-      /** @type {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} */
-      params: {event: {added: [{uri: otherCwd.href, name: ''}], removed: []}}
-    })
+  const openDiagnostics = await openDiagnosticsPromise
+  t.equal(
+    openDiagnostics.diagnostics[0].message,
+    fileURLToPath(processCwd).slice(0, -1)
   )
 
-  await sleep(delay)
-
-  stdin.write(
-    toMessage({
-      method: 'workspace/didChangeWorkspaceFolders',
-      /** @type {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} */
-      params: {
-        event: {added: [], removed: [{uri: otherCwd.href, name: ''}]}
-      }
-    })
+  const didAddDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'workspace/didChangeWorkspaceFolders',
+    /** @type {DidChangeWorkspaceFoldersParams} */
+    ({event: {added: [{uri: otherCwd.href, name: ''}], removed: []}})
+  )
+  const didAddDiagnostics = await didAddDiagnosticsPromise
+  t.equal(
+    didAddDiagnostics.diagnostics[0].message,
+    fileURLToPath(otherCwd).slice(0, -1)
   )
 
-  await sleep(delay)
-
-  assert(promise.stdout)
-  promise.stdout.on('data', () => setImmediate(() => stdin.end()))
-
-  try {
-    await promise
-    t.fail('should reject')
-  } catch (error) {
-    const exception = /** @type {ExecError} */ (error)
-    const messages = fromMessages(exception.stdout)
-    t.deepEqual(
-      messages
-        .filter((d) => d.method === 'textDocument/publishDiagnostics')
-        .flatMap((d) => {
-          const parameters =
-            /** @type {import('vscode-languageserver').PublishDiagnosticsParams} */ (
-              d.params
-            )
-          return parameters.diagnostics
-        })
-        .map((d) => d.message),
-      [
-        fileURLToPath(processCwd).slice(0, -1),
-        fileURLToPath(otherCwd).slice(0, -1),
-        fileURLToPath(processCwd).slice(0, -1)
-      ],
-      'should support `workspaceFolders`'
-    )
-  }
-
-  t.end()
+  const didRemoveDiagnosticsPromise = createDiagnosticsPromise(connection)
+  connection.sendNotification(
+    'workspace/didChangeWorkspaceFolders',
+    /** @type {DidChangeWorkspaceFoldersParams} */
+    ({event: {added: [], removed: [{uri: otherCwd.href, name: ''}]}})
+  )
+  const didRemoveDiagnostics = await didRemoveDiagnosticsPromise
+  t.equal(
+    didRemoveDiagnostics.diagnostics[0].message,
+    fileURLToPath(processCwd).slice(0, -1)
+  )
 })
-
-/**
- * @param {string} data
- * @returns {Array<Record<string, unknown>>}
- */
-function fromMessages(data) {
-  return data
-    .replace(/\r?\n/g, '\n')
-    .split(/Content-Length: \d+\n{2}/g)
-    .filter(Boolean)
-    .map((d) => JSON.parse(d))
-}
-
-/**
- * @param {unknown} data
- */
-function toMessage(data) {
-  const content = Buffer.from(JSON.stringify(data))
-  return Buffer.concat([
-    Buffer.from('Content-Length: ' + content.length + '\r\n\r\n'),
-    content
-  ])
-}
 
 /**
  * @param {string} stack
