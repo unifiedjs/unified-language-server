@@ -327,6 +327,21 @@ test('`textDocument/formatting`', async (t) => {
     null,
     'should format good documents on `textDocument/formatting`'
   )
+
+  /** @type {null} */
+  const resultUnknown = await connection.sendRequest(
+    'textDocument/formatting',
+    /** @type {DocumentFormattingParams} */
+    ({
+      textDocument: {uri: new URL('unknown.md', import.meta.url).href},
+      options: {tabSize: 2, insertSpaces: true}
+    })
+  )
+  t.deepEqual(
+    resultUnknown,
+    null,
+    'should ignore unsynchronized documents on `textDocument/formatting`'
+  )
 })
 
 test('`workspace/didChangeWatchedFiles`', async (t) => {
