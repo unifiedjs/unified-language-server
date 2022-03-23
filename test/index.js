@@ -856,7 +856,10 @@ async function createOnRequestPromise(connection, type) {
   return new Promise((resolve) => {
     const disposable = connection.onRequest(type, (result) => {
       disposable.dispose()
-      setTimeout(() => resolve(result), 0)
+      // The timeout should be 0. However, this causes random test failures.
+      // This will be fixed in vscode-languageserver-protocol 3.17
+      // https://github.com/microsoft/vscode-languageserver-node/pull/776
+      setTimeout(() => resolve(result), 100)
     })
   })
 }
