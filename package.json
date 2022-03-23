@@ -52,7 +52,7 @@
     "type-coverage": "^2.0.0",
     "typescript": "^4.0.0",
     "unified": "^10.0.0",
-    "vscode-jsonrpc": "^6.0.0",
+    "vscode-languageserver-protocol": "^3.0.0",
     "xo": "^0.47.0"
   },
   "scripts": {
@@ -82,6 +82,7 @@
   "typeCoverage": {
     "atLeast": 100,
     "detail": true,
+    "ignoreNested": true,
     "strict": true
   }
 }

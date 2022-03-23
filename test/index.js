@@ -1,19 +1,5 @@
 /**
- * @typedef {import('node:child_process').ExecException & {stdout: string, stderr: string}} ExecError
- * @typedef {import('vscode-jsonrpc').MessageConnection} MessageConnection
- * @typedef {import('vscode-languageserver').CodeAction} CodeAction
- * @typedef {import('vscode-languageserver').CodeActionParams} CodeActionParams
- * @typedef {import('vscode-languageserver').DidChangeWorkspaceFoldersParams} DidChangeWorkspaceFoldersParams
- * @typedef {import('vscode-languageserver').DidCloseTextDocumentParams} DidCloseTextDocumentParams
- * @typedef {import('vscode-languageserver').DidOpenTextDocumentParams} DidOpenTextDocumentParams
- * @typedef {import('vscode-languageserver').DocumentFormattingParams} DocumentFormattingParams
- * @typedef {import('vscode-languageserver').InitializeParams} InitializeParams
- * @typedef {import('vscode-languageserver').InitializeResult<never>} InitializeResult
- * @typedef {import('vscode-languageserver').InitializedParams} InitializedParams
- * @typedef {import('vscode-languageserver').LogMessageParams} LogMessageParams
- * @typedef {import('vscode-languageserver').PublishDiagnosticsParams} PublishDiagnosticsParams
- * @typedef {import('vscode-languageserver').ShowMessageRequestParams} ShowMessageRequestParams
- * @typedef {import('vscode-languageserver').TextEdit} TextEdit
+ * @typedef {import('vscode-languageserver-protocol').ProtocolConnection} ProtocolConnection
  */
 
 import {promises as fs} from 'node:fs'
@@ -24,10 +10,19 @@ import test from 'tape'
 
 import * as exports from 'unified-language-server'
 import {
-  createMessageConnection,
+  createProtocolConnection,
+  CodeActionRequest,
+  DidChangeWorkspaceFoldersNotification,
+  DidCloseTextDocumentNotification,
+  DidOpenTextDocumentNotification,
+  DocumentFormattingRequest,
+  LogMessageNotification,
+  InitializeRequest,
+  PublishDiagnosticsNotification,
+  ShowMessageRequest,
   StreamMessageReader,
   StreamMessageWriter
-} from 'vscode-jsonrpc/node.js'
+} from 'vscode-languageserver-protocol/node.js'
 
 test('exports', (t) => {
   t.equal(typeof exports.createUnifiedLanguageServer, 'function')
@@ -37,12 +32,15 @@ test('exports', (t) => {
 
 test('`initialize`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js', '.')
-  const initializeResponse = await initialize(connection, {
-    processId: null,
-    rootUri: null,
-    capabilities: {},
-    workspaceFolders: null
-  })
+  const initializeResponse = await connection.sendRequest(
+    InitializeRequest.type,
+    {
+      processId: null,
+      rootUri: null,
+      capabilities: {},
+      workspaceFolders: null
+    }
+  )
 
   t.deepEqual(
     initializeResponse,
@@ -63,12 +61,15 @@ test('`initialize`', async (t) => {
 test('`initialize` workspace capabilities', async (t) => {
   const connection = startLanguageServer(t, 'remark.js', '.')
 
-  const initializeResponse = await initialize(connection, {
-    processId: null,
-    rootUri: null,
-    capabilities: {workspace: {workspaceFolders: true}},
-    workspaceFolders: null
-  })
+  const initializeResponse = await connection.sendRequest(
+    InitializeRequest.type,
+    {
+      processId: null,
+      rootUri: null,
+      capabilities: {workspace: {workspaceFolders: true}},
+      workspaceFolders: null
+    }
+  )
 
   t.deepEqual(
     initializeResponse,
@@ -91,7 +92,7 @@ test('`initialize` workspace capabilities', async (t) => {
 
 test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async (t) => {
   const connection = startLanguageServer(t, 'remark-with-warnings.js', '.')
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
@@ -99,19 +100,18 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
   })
   const uri = new URL('lsp.md', import.meta.url).href
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -169,12 +169,13 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
     'should emit diagnostics on `textDocument/didOpen`'
   )
 
-  const closeDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didClose',
-    /** @type {DidCloseTextDocumentParams} */
-    ({textDocument: {uri, version: 1}})
+  const closeDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidCloseTextDocumentNotification.type, {
+    textDocument: {uri}
+  })
   const closeDiagnostics = await closeDiagnosticsPromise
 
   t.deepEqual(
@@ -187,26 +188,25 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
 test('uninstalled processor so `window/showMessageRequest`', async (t) => {
   const connection = startLanguageServer(t, 'missing-package.js', '.')
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const messageRequestPromise = createMessageRequestPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const messageRequestPromise = createOnRequestPromise(
+    connection,
+    ShowMessageRequest.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const messageRequest = await messageRequestPromise
 
   t.deepEqual(
@@ -228,26 +228,25 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
     '.'
   )
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const logPromise = createLogPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const logPromise = createOnNotificationPromise(
+    connection,
+    LogMessageNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const log = await logPromise
 
   t.deepEqual(
@@ -260,47 +259,37 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
 test('`textDocument/formatting`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js', '.')
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('bad.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '   #   hi  \n'
-      }
-    })
-  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('bad.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '   #   hi  \n'
+    }
+  })
 
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('good.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi\n'
-      }
-    })
-  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('good.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi\n'
+    }
+  })
 
-  /** @type {TextEdit} */
   const resultBad = await connection.sendRequest(
-    'textDocument/formatting',
-    /** @type {DocumentFormattingParams} */
-    ({
+    DocumentFormattingRequest.type,
+    {
       textDocument: {uri: new URL('bad.md', import.meta.url).href},
       options: {tabSize: 2, insertSpaces: true}
-    })
+    }
   )
   t.deepEqual(
     resultBad,
@@ -313,14 +302,12 @@ test('`textDocument/formatting`', async (t) => {
     'should format bad documents on `textDocument/formatting`'
   )
 
-  /** @type {null} */
   const resultGood = await connection.sendRequest(
-    'textDocument/formatting',
-    /** @type {DocumentFormattingParams} */
-    ({
+    DocumentFormattingRequest.type,
+    {
       textDocument: {uri: new URL('good.md', import.meta.url).href},
       options: {tabSize: 2, insertSpaces: true}
-    })
+    }
   )
   t.deepEqual(
     resultGood,
@@ -328,14 +315,12 @@ test('`textDocument/formatting`', async (t) => {
     'should format good documents on `textDocument/formatting`'
   )
 
-  /** @type {null} */
   const resultUnknown = await connection.sendRequest(
-    'textDocument/formatting',
-    /** @type {DocumentFormattingParams} */
-    ({
+    DocumentFormattingRequest.type,
+    {
       textDocument: {uri: new URL('unknown.md', import.meta.url).href},
       options: {tabSize: 2, insertSpaces: true}
-    })
+    }
   )
   t.deepEqual(
     resultUnknown,
@@ -347,29 +332,31 @@ test('`textDocument/formatting`', async (t) => {
 test('`workspace/didChangeWatchedFiles`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js', '.')
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('a.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('a.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   await openDiagnosticsPromise
 
-  const changeWatchDiagnosticsPromise = createDiagnosticsPromise(connection)
+  const changeWatchDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
   connection.sendNotification('workspace/didChangeWatchedFiles', {changes: []})
   const changeWatchDiagnostics = await changeWatchDiagnosticsPromise
 
@@ -383,26 +370,25 @@ test('`workspace/didChangeWatchedFiles`', async (t) => {
 test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => {
   const connection = startLanguageServer(t, 'remark-with-error.js', '.')
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -426,89 +412,83 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
   const connection = startLanguageServer(t, 'remark.js', '.')
   const uri = new URL('lsp.md', import.meta.url).href
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri,
-        languageId: 'markdown',
-        version: 1,
-        text: '## hello'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri,
+      languageId: 'markdown',
+      version: 1,
+      text: '## hello'
+    }
+  })
   await openDiagnosticsPromise
 
-  /** @type {CodeAction} */
-  const codeActions = await connection.sendRequest(
-    'textDocument/codeAction',
-    /** @type {CodeActionParams} */
-    ({
-      textDocument: {uri},
-      range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
-      context: {
-        diagnostics: [
-          // Coverage for warnings w/o `data` (which means a message w/o `expected`).
-          {
-            message: 'warning',
-            severity: 2,
-            range: {
-              start: {line: 0, character: 3},
-              end: {line: 0, character: 0}
-            }
-          },
-          {
-            message: 'warning',
-            severity: 2,
-            data: {},
-            range: {
-              start: {line: 0, character: 3},
-              end: {line: 0, character: 8}
-            }
-          },
-          // Replacement:
-          {
-            message: 'warning',
-            severity: 2,
-            data: {expected: ['Hello']},
-            range: {
-              start: {line: 0, character: 3},
-              end: {line: 0, character: 8}
-            }
-          },
-          // Insertion (start and end in the same place):
-          {
-            message: 'warning',
-            severity: 2,
-            data: {expected: ['!']},
-            range: {
-              start: {line: 0, character: 8},
-              end: {line: 0, character: 8}
-            }
-          },
-          // Deletion (empty `expected`):
-          {
-            message: 'warning',
-            severity: 2,
-            data: {expected: ['']},
-            range: {
-              start: {line: 0, character: 1},
-              end: {line: 0, character: 2}
-            }
+  const codeActions = await connection.sendRequest(CodeActionRequest.type, {
+    textDocument: {uri},
+    range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+    context: {
+      diagnostics: [
+        // Coverage for warnings w/o `data` (which means a message w/o `expected`).
+        {
+          message: 'warning',
+          severity: 2,
+          range: {
+            start: {line: 0, character: 3},
+            end: {line: 0, character: 0}
           }
-        ]
-      }
-    })
-  )
+        },
+        {
+          message: 'warning',
+          severity: 2,
+          data: {},
+          range: {
+            start: {line: 0, character: 3},
+            end: {line: 0, character: 8}
+          }
+        },
+        // Replacement:
+        {
+          message: 'warning',
+          severity: 2,
+          data: {expected: ['Hello']},
+          range: {
+            start: {line: 0, character: 3},
+            end: {line: 0, character: 8}
+          }
+        },
+        // Insertion (start and end in the same place):
+        {
+          message: 'warning',
+          severity: 2,
+          data: {expected: ['!']},
+          range: {
+            start: {line: 0, character: 8},
+            end: {line: 0, character: 8}
+          }
+        },
+        // Deletion (empty `expected`):
+        {
+          message: 'warning',
+          severity: 2,
+          data: {expected: ['']},
+          range: {
+            start: {line: 0, character: 1},
+            end: {line: 0, character: 2}
+          }
+        }
+      ]
+    }
+  })
 
   t.deepEqual(
     codeActions,
@@ -577,27 +557,26 @@ test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
     fileURLToPath(cwd)
   )
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('folder-with-package-json/folder/file.md', import.meta.url)
-          .href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('folder-with-package-json/folder/file.md', import.meta.url)
+        .href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -618,26 +597,25 @@ test('`initialize` w/ nothing (find closest `.git`)', async (t) => {
     recursive: true
   })
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
     workspaceFolders: null
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('folder-with-git/folder/file.md', import.meta.url).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('folder-with-git/folder/file.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -656,26 +634,25 @@ test('`initialize` w/ `rootUri`', async (t) => {
     fileURLToPath(processCwd)
   )
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: cwd.href,
     capabilities: {},
     workspaceFolders: []
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', cwd).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', cwd).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -695,7 +672,7 @@ test('`initialize` w/ `workspaceFolders`', async (t) => {
 
   const otherCwd = new URL('folder/', processCwd)
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {},
@@ -705,19 +682,18 @@ test('`initialize` w/ `workspaceFolders`', async (t) => {
     ]
   })
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', otherCwd).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', otherCwd).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
 
   t.deepEqual(
@@ -737,7 +713,7 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
     fileURLToPath(processCwd)
   )
 
-  await initialize(connection, {
+  await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
     capabilities: {workspace: {workspaceFolders: true}},
@@ -751,43 +727,44 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
 
   const otherCwd = new URL('./folder/', processCwd)
 
-  const openDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'textDocument/didOpen',
-    /** @type {DidOpenTextDocumentParams} */
-    ({
-      textDocument: {
-        uri: new URL('lsp.md', otherCwd).href,
-        languageId: 'markdown',
-        version: 1,
-        text: '# hi'
-      }
-    })
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('lsp.md', otherCwd).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
   const openDiagnostics = await openDiagnosticsPromise
   t.equal(
     openDiagnostics.diagnostics[0].message,
     fileURLToPath(processCwd).slice(0, -1)
   )
 
-  const didAddDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'workspace/didChangeWorkspaceFolders',
-    /** @type {DidChangeWorkspaceFoldersParams} */
-    ({event: {added: [{uri: otherCwd.href, name: ''}], removed: []}})
+  const didAddDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
+    event: {added: [{uri: otherCwd.href, name: ''}], removed: []}
+  })
   const didAddDiagnostics = await didAddDiagnosticsPromise
   t.equal(
     didAddDiagnostics.diagnostics[0].message,
     fileURLToPath(otherCwd).slice(0, -1)
   )
 
-  const didRemoveDiagnosticsPromise = createDiagnosticsPromise(connection)
-  connection.sendNotification(
-    'workspace/didChangeWorkspaceFolders',
-    /** @type {DidChangeWorkspaceFoldersParams} */
-    ({event: {added: [], removed: [{uri: otherCwd.href, name: ''}]}})
+  const didRemoveDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
   )
+  connection.sendNotification(DidChangeWorkspaceFoldersNotification.type, {
+    event: {added: [], removed: [{uri: otherCwd.href, name: ''}]}
+  })
   const didRemoveDiagnostics = await didRemoveDiagnosticsPromise
   t.equal(
     didRemoveDiagnostics.diagnostics[0].message,
@@ -836,99 +813,50 @@ function startLanguageServer(t, serverFilePath, cwd) {
     ],
     {cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd)}
   )
-  const connection = createMessageConnection(
+  const connection = createProtocolConnection(
     new StreamMessageReader(proc.stdout),
     new StreamMessageWriter(proc.stdin)
   )
   t.teardown(() => {
     connection.end()
   })
-  connection.onNotification(
-    'window/logMessage',
-    /**
-     * @param {LogMessageParams} message
-     */
-    ({message}) => {
-      console.dir(message)
-    }
-  )
+  connection.onNotification(LogMessageNotification.type, ({message}) => {
+    console.dir(message)
+  })
   connection.listen()
   return connection
 }
 
 /**
- * Initialize a language server in a type-safe manner.
+ * Wait for an event type to be omitted.
  *
- * @param {MessageConnection} connection
- * @param {InitializeParams} parameters
- * @returns {Promise<InitializeResult>}
+ * @template ReturnType
+ * @param {ProtocolConnection} connection
+ * @param {import('vscode-languageserver-protocol').NotificationType<ReturnType>} type
+ * @returns {Promise<ReturnType>}
  */
-async function initialize(connection, parameters) {
-  return connection.sendRequest('initialize', parameters)
-}
-
-/**
- * Wait for an event name to be omitted.
- *
- * @param {MessageConnection} connection
- * @param {string} name
- * @returns {Promise<any>}
- */
-async function createNotificationPromise(connection, name) {
+async function createOnNotificationPromise(connection, type) {
   return new Promise((resolve) => {
-    const disposable = connection.onNotification(
-      name,
-      /**
-       * @param result {unknown}
-       */
-      (result) => {
-        disposable.dispose()
-        setTimeout(() => resolve(result), 0)
-      }
-    )
+    const disposable = connection.onNotification(type, (result) => {
+      disposable.dispose()
+      setTimeout(() => resolve(result), 0)
+    })
   })
 }
 
 /**
- * Wait for a diagnostic to be omitted.
+ * Wait for a request to be sent from the server to the client.
  *
- * @param {MessageConnection} connection
- * @returns {Promise<PublishDiagnosticsParams>}
+ * @template Params
+ * @param {ProtocolConnection} connection
+ * @param {import('vscode-languageserver-protocol').RequestType<Params, any, any>} type
+ * @returns {Promise<Params>}
  */
-async function createDiagnosticsPromise(connection) {
-  return createNotificationPromise(
-    connection,
-    'textDocument/publishDiagnostics'
-  )
-}
-
-/**
- * Wait for a diagnostic to be omitted.
- *
- * @param {MessageConnection} connection
- * @returns {Promise<LogMessageParams>}
- */
-async function createLogPromise(connection) {
-  return createNotificationPromise(connection, 'window/logMessage')
-}
-
-/**
- * Wait for a show message request to be omitted.
- *
- * @param {MessageConnection} connection
- * @returns {Promise<ShowMessageRequestParams>}
- */
-async function createMessageRequestPromise(connection) {
+async function createOnRequestPromise(connection, type) {
   return new Promise((resolve) => {
-    const disposable = connection.onRequest(
-      'window/showMessageRequest',
-      /**
-       * @param result {ShowMessageRequestParams}
-       */
-      (result) => {
-        disposable.dispose()
-        setTimeout(() => resolve(result), 0)
-      }
-    )
+    const disposable = connection.onRequest(type, (result) => {
+      disposable.dispose()
+      setTimeout(() => resolve(result), 0)
+    })
   })
 }
