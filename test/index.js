@@ -29,7 +29,7 @@ test('exports', (t) => {
 })
 
 test('`initialize`', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js', '.')
+  const connection = startLanguageServer(t, 'remark.js')
   const initializeResponse = await connection.sendRequest(
     InitializeRequest.type,
     {
@@ -57,7 +57,7 @@ test('`initialize`', async (t) => {
 })
 
 test('`initialize` workspace capabilities', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js', '.')
+  const connection = startLanguageServer(t, 'remark.js')
 
   const initializeResponse = await connection.sendRequest(
     InitializeRequest.type,
@@ -89,7 +89,7 @@ test('`initialize` workspace capabilities', async (t) => {
 })
 
 test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async (t) => {
-  const connection = startLanguageServer(t, 'remark-with-warnings.js', '.')
+  const connection = startLanguageServer(t, 'remark-with-warnings.js')
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
     rootUri: null,
@@ -184,7 +184,7 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
 })
 
 test('uninstalled processor so `window/showMessageRequest`', async (t) => {
-  const connection = startLanguageServer(t, 'missing-package.js', '.')
+  const connection = startLanguageServer(t, 'missing-package.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -220,11 +220,7 @@ test('uninstalled processor so `window/showMessageRequest`', async (t) => {
 })
 
 test('uninstalled processor w/ `defaultProcessor`', async (t) => {
-  const connection = startLanguageServer(
-    t,
-    'missing-package-with-default.js',
-    '.'
-  )
+  const connection = startLanguageServer(t, 'missing-package-with-default.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -255,7 +251,7 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
 })
 
 test('`textDocument/formatting`', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js', '.')
+  const connection = startLanguageServer(t, 'remark.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -328,7 +324,7 @@ test('`textDocument/formatting`', async (t) => {
 })
 
 test('`workspace/didChangeWatchedFiles`', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js', '.')
+  const connection = startLanguageServer(t, 'remark.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -366,7 +362,7 @@ test('`workspace/didChangeWatchedFiles`', async (t) => {
 })
 
 test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => {
-  const connection = startLanguageServer(t, 'remark-with-error.js', '.')
+  const connection = startLanguageServer(t, 'remark-with-error.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -407,7 +403,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
 })
 
 test('`textDocument/codeAction` (and diagnostics)', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js', '.')
+  const connection = startLanguageServer(t, 'remark.js')
   const uri = new URL('lsp.md', import.meta.url).href
 
   await connection.sendRequest(InitializeRequest.type, {
@@ -795,11 +791,10 @@ function cleanStack(stack, max) {
  * @param {test.Test} t The test context to use for cleanup.
  * @param {string} serverFilePath The path to the language server relative to
  * this test file.
- * @param {string} cwd The cwd to use for the process relative to this test
- * file.
+ * @param cwd The cwd to use for the process relative to this test file.
  * @returns a jsonrpc connection.
  */
-function startLanguageServer(t, serverFilePath, cwd) {
+function startLanguageServer(t, serverFilePath, cwd = '.') {
   const proc = spawn(
     'node',
     [
