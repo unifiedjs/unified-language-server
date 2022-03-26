@@ -492,6 +492,20 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
     ],
     'should emit quick fixes on a `textDocument/codeAction`'
   )
+
+  const closedCodeActions = await connection.sendRequest(
+    CodeActionRequest.type,
+    {
+      textDocument: {uri: new URL('closed.md', import.meta.url).href},
+      range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+      context: {diagnostics: []}
+    }
+  )
+  t.equal(
+    closedCodeActions,
+    null,
+    'should not emit quick fixes for unsynchronized documents'
+  )
 })
 
 test('`initialize` w/ nothing (finds closest `package.json`)', async (t) => {
