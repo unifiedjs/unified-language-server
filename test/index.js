@@ -19,9 +19,7 @@ import {
   LogMessageNotification,
   InitializeRequest,
   PublishDiagnosticsNotification,
-  ShowMessageRequest,
-  StreamMessageReader,
-  StreamMessageWriter
+  ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
 
 test('exports', (t) => {
@@ -813,10 +811,7 @@ function startLanguageServer(t, serverFilePath, cwd) {
     ],
     {cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd)}
   )
-  const connection = createProtocolConnection(
-    new StreamMessageReader(proc.stdout),
-    new StreamMessageWriter(proc.stdin)
-  )
+  const connection = createProtocolConnection(proc.stdout, proc.stdin)
   t.teardown(() => {
     connection.end()
   })
