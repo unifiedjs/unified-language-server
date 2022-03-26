@@ -403,7 +403,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async (t) => 
 })
 
 test('`textDocument/codeAction` (and diagnostics)', async (t) => {
-  const connection = startLanguageServer(t, 'remark.js')
+  const connection = startLanguageServer(t, 'code-actions.js')
   const uri = new URL('lsp.md', import.meta.url).href
 
   await connection.sendRequest(InitializeRequest.type, {
@@ -422,65 +422,16 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
       uri,
       languageId: 'markdown',
       version: 1,
-      text: '## hello'
+      text: 'actual content'
     }
   })
-  await openDiagnosticsPromise
+  const openDiagnostics = await openDiagnosticsPromise
 
   const codeActions = await connection.sendRequest(CodeActionRequest.type, {
     textDocument: {uri},
     range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
     context: {
-      diagnostics: [
-        // Coverage for warnings w/o `data` (which means a message w/o `expected`).
-        {
-          message: 'warning',
-          severity: 2,
-          range: {
-            start: {line: 0, character: 3},
-            end: {line: 0, character: 0}
-          }
-        },
-        {
-          message: 'warning',
-          severity: 2,
-          data: {},
-          range: {
-            start: {line: 0, character: 3},
-            end: {line: 0, character: 8}
-          }
-        },
-        // Replacement:
-        {
-          message: 'warning',
-          severity: 2,
-          data: {expected: ['Hello']},
-          range: {
-            start: {line: 0, character: 3},
-            end: {line: 0, character: 8}
-          }
-        },
-        // Insertion (start and end in the same place):
-        {
-          message: 'warning',
-          severity: 2,
-          data: {expected: ['!']},
-          range: {
-            start: {line: 0, character: 8},
-            end: {line: 0, character: 8}
-          }
-        },
-        // Deletion (empty `expected`):
-        {
-          message: 'warning',
-          severity: 2,
-          data: {expected: ['']},
-          range: {
-            start: {line: 0, character: 1},
-            end: {line: 0, character: 2}
-          }
-        }
-      ]
+      diagnostics: openDiagnostics.diagnostics
     }
   })
 
@@ -488,16 +439,16 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
     codeActions,
     [
       {
-        title: 'Replace `hello` with `Hello`',
+        title: 'Insert `insert me`',
         edit: {
           changes: {
             [uri]: [
               {
                 range: {
-                  start: {line: 0, character: 3},
-                  end: {line: 0, character: 8}
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 0}
                 },
-                newText: 'Hello'
+                newText: 'insert me'
               }
             ]
           }
@@ -505,16 +456,16 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
         kind: 'quickfix'
       },
       {
-        title: 'Insert `!`',
+        title: 'Replace `actual` with `replacement`',
         edit: {
           changes: {
             [uri]: [
               {
                 range: {
-                  start: {line: 0, character: 8},
-                  end: {line: 0, character: 8}
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
                 },
-                newText: '!'
+                newText: 'replacement'
               }
             ]
           }
@@ -522,14 +473,14 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
         kind: 'quickfix'
       },
       {
-        title: 'Remove `#`',
+        title: 'Remove `actual`',
         edit: {
           changes: {
             [uri]: [
               {
                 range: {
-                  start: {line: 0, character: 1},
-                  end: {line: 0, character: 2}
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
                 },
                 newText: ''
               }
