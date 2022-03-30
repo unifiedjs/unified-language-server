@@ -684,7 +684,7 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
     connection.sendNotification('initialized', {})
   })
 
-  const otherCwd = new URL('./folder/', processCwd)
+  const otherCwd = new URL('folder/', processCwd)
 
   const openDiagnosticsPromise = createOnNotificationPromise(
     connection,
