@@ -1,5 +1,7 @@
 /**
+ * @typedef {import('vscode-languageserver-protocol').ConfigurationParams} ConfigurationParams
  * @typedef {import('vscode-languageserver-protocol').ProtocolConnection} ProtocolConnection
+ * @typedef {import('../lib').UnifiedLanguageServerSettings} UnifiedLanguageServerSettings
  */
 
 import {promises as fs} from 'node:fs'
@@ -12,13 +14,18 @@ import * as exports from 'unified-language-server'
 import {
   createProtocolConnection,
   CodeActionRequest,
+  ConfigurationRequest,
+  DidChangeConfigurationNotification,
   DidChangeWorkspaceFoldersNotification,
+  DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DocumentFormattingRequest,
   LogMessageNotification,
+  InitializedNotification,
   InitializeRequest,
   PublishDiagnosticsNotification,
+  RegistrationRequest,
   ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
 
@@ -180,6 +187,163 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
     closeDiagnostics,
     {uri, version: 1, diagnostics: []},
     'should emit empty diagnostics on `textDocument/didClose`'
+  )
+})
+
+test('workspace configuration `requireConfig`', async (t) => {
+  const connection = startLanguageServer(t, 'remark-with-warnings.js')
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {
+      workspace: {configuration: true}
+    },
+    workspaceFolders: null
+  })
+  await new Promise((resolve) => {
+    connection.onRequest(RegistrationRequest.type, resolve)
+    connection.sendNotification(InitializedNotification.type, {})
+  })
+
+  /** @type {ConfigurationParams | undefined} */
+  let configRequest
+  let requireConfig = false
+  connection.onRequest(ConfigurationRequest.type, (request) => {
+    configRequest = request
+    return [{requireConfig}]
+  })
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  t.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics on `textDocument/didOpen`'
+  )
+  t.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should request configurations for the open file'
+  )
+
+  configRequest = undefined
+  const cachedOpenDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  await cachedOpenDiagnosticsPromise
+  t.is(configRequest, undefined, 'should cache workspace configurations')
+
+  const closeDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidCloseTextDocumentNotification.type, {
+    textDocument: {uri}
+  })
+  await closeDiagnosticsPromise
+  const reopenDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  await reopenDiagnosticsPromise
+  t.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should clear the cache if the file is opened'
+  )
+
+  configRequest = undefined
+  const changeConfigurationDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  requireConfig = true
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {}
+  })
+  const changeConfigurationDiagnostics =
+    await changeConfigurationDiagnosticsPromise
+  t.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should clear the cache if the configuration changed'
+  )
+  t.deepEqual(
+    {uri, version: 1, diagnostics: []},
+    changeConfigurationDiagnostics,
+    'should not emit diagnostics if requireConfig is false'
+  )
+})
+
+test.only('global configuration `requireConfig`', async (t) => {
+  const connection = startLanguageServer(t, 'remark-with-warnings.js')
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  t.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics on `textDocument/didOpen`'
+  )
+
+  const changeConfigurationDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {requireConfig: true}
+  })
+  const changeConfigurationDiagnostics =
+    await changeConfigurationDiagnosticsPromise
+  t.deepEqual(
+    {uri, version: 1, diagnostics: []},
+    changeConfigurationDiagnostics,
+    'should emit empty diagnostics if requireConfig is true without config'
+  )
+
+  const rcPath = new URL('.testremarkrc.json', import.meta.url)
+  t.teardown(() => fs.rm(rcPath, {force: true}))
+  await fs.writeFile(rcPath, '{}\n')
+  const watchedFileDiagnosticsPromise = createOnNotificationPromise(
+    connection,
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeWatchedFilesNotification.type, {
+    changes: []
+  })
+  const watchedFileDiagnostics = await watchedFileDiagnosticsPromise
+  t.isNot(
+    0,
+    watchedFileDiagnostics.diagnostics.length,
+    'should emit diagnostics if requireConfig is true with config'
   )
 })
 
@@ -763,6 +927,7 @@ function startLanguageServer(t, serverFilePath, cwd = '.') {
   const proc = spawn(
     'node',
     [
+      // '--inspect-brk=9229',
       path.resolve(
         path.dirname(fileURLToPath(import.meta.url)),
         serverFilePath
