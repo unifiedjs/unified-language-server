@@ -245,7 +245,7 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
 
   t.deepEqual(
     cleanStack(log.message, 2).replace(/(imported from )[^\r\n]+/, '$1zzz'),
-    "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
+    "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError: Cannot find package 'xxx-missing-yyy' imported from zzz",
     'should work w/ `defaultProcessor`'
   )
 })
@@ -679,10 +679,7 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
     workspaceFolders: [{uri: processCwd.href, name: ''}]
   })
 
-  await new Promise((resolve) => {
-    connection.onRequest('client/registerCapability', resolve)
-    connection.sendNotification('initialized', {})
-  })
+  connection.sendNotification('initialized', {})
 
   const otherCwd = new URL('folder/', processCwd)
 
