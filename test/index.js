@@ -453,7 +453,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
             ]
           }
         },
-        kind: 'quickfix'
+        kind: 'quickfix',
+        isPreferred: true
       },
       {
         title: 'Replace `actual` with `replacement`',
@@ -470,7 +471,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
             ]
           }
         },
-        kind: 'quickfix'
+        kind: 'quickfix',
+        isPreferred: true
       },
       {
         title: 'Remove `actual`',
@@ -483,6 +485,41 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
                   end: {line: 0, character: 6}
                 },
                 newText: ''
+              }
+            ]
+          }
+        },
+        kind: 'quickfix',
+        isPreferred: true
+      },
+      {
+        title: 'Replace `actual` with `alternative a`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
+                },
+                newText: 'alternative a'
+              }
+            ]
+          }
+        },
+        kind: 'quickfix'
+      },
+      {
+        title: 'Replace `actual` with `alternative b`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
+                },
+                newText: 'alternative b'
               }
             ]
           }
