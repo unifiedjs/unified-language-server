@@ -2,7 +2,7 @@
  * @typedef {import('vscode-languageserver-protocol').ProtocolConnection} ProtocolConnection
  */
 
-import {promises as fs} from 'node:fs'
+import fs from 'node:fs/promises'
 import {spawn} from 'node:child_process'
 import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
