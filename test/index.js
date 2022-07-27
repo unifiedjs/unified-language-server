@@ -313,6 +313,30 @@ test('`textDocument/formatting`', async (t) => {
     null,
     'should ignore unsynchronized documents on `textDocument/formatting`'
   )
+
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('../../outside.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '   #   hi  \n'
+    }
+  })
+
+  const resultOutside = await connection.sendRequest(
+    DocumentFormattingRequest.type,
+    {
+      textDocument: {
+        uri: new URL('../../outside.md', import.meta.url).href
+      },
+      options: {tabSize: 2, insertSpaces: true}
+    }
+  )
+  t.deepEqual(
+    resultOutside,
+    null,
+    'should ignore documents outside of workspace on `textDocument/formatting`'
+  )
 })
 
 test('`workspace/didChangeWatchedFiles`', async (t) => {
