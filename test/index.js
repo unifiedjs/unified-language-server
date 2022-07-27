@@ -7,8 +7,6 @@ import {spawn} from 'node:child_process'
 import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
 import test from 'tape'
-
-import * as exports from 'unified-language-server'
 import {
   createProtocolConnection,
   CodeActionRequest,
@@ -21,12 +19,6 @@ import {
   PublishDiagnosticsNotification,
   ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
-
-test('exports', (t) => {
-  t.equal(typeof exports.createUnifiedLanguageServer, 'function')
-
-  t.end()
-})
 
 test('`initialize`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js')
