@@ -1,4 +1,4 @@
-import {createUnifiedLanguageServer} from '../index.js'
+import {createUnifiedLanguageServer} from 'unified-language-server'
 
 createUnifiedLanguageServer({
   processorName: 'remark',
@@ -23,6 +23,12 @@ function warn() {
       start: {line: 1, column: 1},
       end: {line: 1, column: 7}
     }).expected = ['']
+
+    // Insert
+    file.message('', {
+      start: {line: 1, column: 1},
+      end: {line: 1, column: 7}
+    }).expected = ['alternative a', 'alternative b']
 
     // @ts-expect-error We are deliberately testing invalid types here, because
     // the expected field used to be untyped for a long time.

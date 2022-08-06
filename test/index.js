@@ -4,13 +4,11 @@
  * @typedef {import('../lib').UnifiedLanguageServerSettings} UnifiedLanguageServerSettings
  */
 
-import {promises as fs} from 'node:fs'
+import fs from 'node:fs/promises'
 import {spawn} from 'node:child_process'
 import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
 import test from 'tape'
-
-import * as exports from 'unified-language-server'
 import {
   createProtocolConnection,
   CodeActionRequest,
@@ -28,12 +26,6 @@ import {
   RegistrationRequest,
   ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
-
-test('exports', (t) => {
-  t.equal(typeof exports.createUnifiedLanguageServer, 'function')
-
-  t.end()
-})
 
 test('`initialize`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js')
@@ -409,7 +401,7 @@ test('uninstalled processor w/ `defaultProcessor`', async (t) => {
 
   t.deepEqual(
     cleanStack(log.message, 2).replace(/(imported from )[^\r\n]+/, '$1zzz'),
-    "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'xxx-missing-yyy' imported from zzz",
+    "Cannot find `xxx-missing-yyy` locally but using `defaultProcessor`, original error:\nError: Cannot find package 'xxx-missing-yyy' imported from zzz",
     'should work w/ `defaultProcessor`'
   )
 })
@@ -484,6 +476,30 @@ test('`textDocument/formatting`', async (t) => {
     resultUnknown,
     null,
     'should ignore unsynchronized documents on `textDocument/formatting`'
+  )
+
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri: new URL('../../outside.md', import.meta.url).href,
+      languageId: 'markdown',
+      version: 1,
+      text: '   #   hi  \n'
+    }
+  })
+
+  const resultOutside = await connection.sendRequest(
+    DocumentFormattingRequest.type,
+    {
+      textDocument: {
+        uri: new URL('../../outside.md', import.meta.url).href
+      },
+      options: {tabSize: 2, insertSpaces: true}
+    }
+  )
+  t.deepEqual(
+    resultOutside,
+    null,
+    'should ignore documents outside of workspace on `textDocument/formatting`'
   )
 })
 
@@ -617,7 +633,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
             ]
           }
         },
-        kind: 'quickfix'
+        kind: 'quickfix',
+        isPreferred: true
       },
       {
         title: 'Replace `actual` with `replacement`',
@@ -634,7 +651,8 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
             ]
           }
         },
-        kind: 'quickfix'
+        kind: 'quickfix',
+        isPreferred: true
       },
       {
         title: 'Remove `actual`',
@@ -647,6 +665,41 @@ test('`textDocument/codeAction` (and diagnostics)', async (t) => {
                   end: {line: 0, character: 6}
                 },
                 newText: ''
+              }
+            ]
+          }
+        },
+        kind: 'quickfix',
+        isPreferred: true
+      },
+      {
+        title: 'Replace `actual` with `alternative a`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
+                },
+                newText: 'alternative a'
+              }
+            ]
+          }
+        },
+        kind: 'quickfix'
+      },
+      {
+        title: 'Replace `actual` with `alternative b`',
+        edit: {
+          changes: {
+            [uri]: [
+              {
+                range: {
+                  start: {line: 0, character: 0},
+                  end: {line: 0, character: 6}
+                },
+                newText: 'alternative b'
               }
             ]
           }
@@ -843,10 +896,7 @@ test('`workspace/didChangeWorkspaceFolders`', async (t) => {
     workspaceFolders: [{uri: processCwd.href, name: ''}]
   })
 
-  await new Promise((resolve) => {
-    connection.onRequest('client/registerCapability', resolve)
-    connection.sendNotification('initialized', {})
-  })
+  connection.sendNotification('initialized', {})
 
   const otherCwd = new URL('folder/', processCwd)
 

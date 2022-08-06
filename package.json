@@ -1,6 +1,6 @@
 {
   "name": "unified-language-server",
-  "version": "2.1.0",
+  "version": "3.1.0",
   "description": "Language server for unified",
   "license": "MIT",
   "keywords": [
@@ -35,25 +35,25 @@
   "dependencies": {
     "@types/unist": "^2.0.0",
     "find-up": "^6.0.0",
-    "load-plugin": "^4.0.0",
-    "unified-engine": "^9.0.0",
+    "load-plugin": "^5.0.0",
+    "unified-engine": "^10.0.0",
     "vfile": "^5.0.0",
     "vfile-message": "^3.0.0",
-    "vscode-languageserver": "^7.0.0",
+    "vscode-languageserver": "^8.0.0",
     "vscode-languageserver-textdocument": "^1.0.0"
   },
   "devDependencies": {
     "@types/tape": "^4.0.0",
     "c8": "^7.0.0",
     "prettier": "^2.0.0",
-    "remark-cli": "^10.0.0",
+    "remark-cli": "^11.0.0",
     "remark-preset-wooorm": "^9.0.0",
     "tape": "^5.0.0",
     "type-coverage": "^2.0.0",
     "typescript": "^4.0.0",
     "unified": "^10.0.0",
     "vscode-languageserver-protocol": "^3.0.0",
-    "xo": "^0.48.0"
+    "xo": "^0.51.0"
   },
   "scripts": {
     "prepack": "npm run build",
@@ -72,7 +72,10 @@
     "trailingComma": "none"
   },
   "xo": {
-    "prettier": true
+    "prettier": true,
+    "rules": {
+      "capitalized-comments": "off"
+    }
   },
   "remarkConfig": {
     "plugins": [
