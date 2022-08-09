@@ -815,7 +815,7 @@ function startLanguageServer(t, serverFilePath, cwd = '.') {
     'node',
     [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--node-ipc'],
     {
-      cwd: new URL(cwd, import.meta.url),
+      cwd: fileURLToPath(new URL(cwd, import.meta.url)),
       stdio: [null, 'inherit', 'inherit', 'ipc']
     }
   )
