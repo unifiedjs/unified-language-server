@@ -4,7 +4,6 @@
 
 import fs from 'node:fs/promises'
 import {spawn} from 'node:child_process'
-import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
 import test from 'tape'
 import {
@@ -16,6 +15,8 @@ import {
   DocumentFormattingRequest,
   LogMessageNotification,
   InitializeRequest,
+  IPCMessageReader,
+  IPCMessageWriter,
   PublishDiagnosticsNotification,
   ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
@@ -812,21 +813,19 @@ function cleanStack(stack, max) {
 function startLanguageServer(t, serverFilePath, cwd = '.') {
   const proc = spawn(
     'node',
-    [
-      path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        serverFilePath
-      ),
-      '--stdio'
-    ],
-    {cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd)}
+    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--node-ipc'],
+    {
+      cwd: new URL(cwd, import.meta.url),
+      stdio: [null, 'inherit', 'inherit', 'ipc']
+    }
   )
-  const connection = createProtocolConnection(proc.stdout, proc.stdin)
+  const connection = createProtocolConnection(
+    new IPCMessageReader(proc),
+    new IPCMessageWriter(proc)
+  )
   t.teardown(() => {
     connection.end()
-  })
-  connection.onNotification(LogMessageNotification.type, ({message}) => {
-    console.dir(message)
+    proc.kill()
   })
   connection.listen()
   return connection
