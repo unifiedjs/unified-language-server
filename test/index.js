@@ -4,6 +4,7 @@
 
 import fs from 'node:fs/promises'
 import {spawn} from 'node:child_process'
+import path from 'node:path'
 import {URL, fileURLToPath} from 'node:url'
 import test from 'tape'
 import {
@@ -813,9 +814,15 @@ function cleanStack(stack, max) {
 function startLanguageServer(t, serverFilePath, cwd = '.') {
   const proc = spawn(
     'node',
-    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--node-ipc'],
+    [
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        serverFilePath
+      ),
+      '--node-ipc'
+    ],
     {
-      cwd: fileURLToPath(new URL(cwd, import.meta.url)),
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd),
       stdio: [null, 'inherit', 'inherit', 'ipc']
     }
   )
