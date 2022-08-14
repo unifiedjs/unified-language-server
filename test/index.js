@@ -16,6 +16,8 @@ import {
   DocumentFormattingRequest,
   LogMessageNotification,
   InitializeRequest,
+  IPCMessageReader,
+  IPCMessageWriter,
   PublishDiagnosticsNotification,
   ShowMessageRequest
 } from 'vscode-languageserver-protocol/node.js'
@@ -817,16 +819,20 @@ function startLanguageServer(t, serverFilePath, cwd = '.') {
         path.dirname(fileURLToPath(import.meta.url)),
         serverFilePath
       ),
-      '--stdio'
+      '--node-ipc'
     ],
-    {cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd)}
+    {
+      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd),
+      stdio: [null, 'inherit', 'inherit', 'ipc']
+    }
   )
-  const connection = createProtocolConnection(proc.stdout, proc.stdin)
+  const connection = createProtocolConnection(
+    new IPCMessageReader(proc),
+    new IPCMessageWriter(proc)
+  )
   t.teardown(() => {
     connection.end()
-  })
-  connection.onNotification(LogMessageNotification.type, ({message}) => {
-    console.dir(message)
+    proc.kill()
   })
   connection.listen()
   return connection
