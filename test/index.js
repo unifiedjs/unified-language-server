@@ -1,11 +1,11 @@
 /**
- * @typedef {import('vscode-languageserver-protocol').ProtocolConnection} ProtocolConnection
+ * @typedef {import('vscode-languageserver').ProtocolConnection} ProtocolConnection
  */
 
-import fs from 'node:fs/promises'
 import {spawn} from 'node:child_process'
+import fs from 'node:fs/promises'
 import path from 'node:path'
-import {URL, fileURLToPath} from 'node:url'
+import {fileURLToPath} from 'node:url'
 import test from 'tape'
 import {
   createProtocolConnection,
@@ -20,7 +20,7 @@ import {
   IPCMessageWriter,
   PublishDiagnosticsNotification,
   ShowMessageRequest
-} from 'vscode-languageserver-protocol/node.js'
+} from 'vscode-languageserver/node.js'
 
 test('`initialize`', async (t) => {
   const connection = startLanguageServer(t, 'remark.js')
@@ -843,7 +843,7 @@ function startLanguageServer(t, serverFilePath, cwd = '.') {
  *
  * @template ReturnType
  * @param {ProtocolConnection} connection
- * @param {import('vscode-languageserver-protocol').NotificationType<ReturnType>} type
+ * @param {import('vscode-languageserver').NotificationType<ReturnType>} type
  * @returns {Promise<ReturnType>}
  */
 async function createOnNotificationPromise(connection, type) {
@@ -860,17 +860,14 @@ async function createOnNotificationPromise(connection, type) {
  *
  * @template Params
  * @param {ProtocolConnection} connection
- * @param {import('vscode-languageserver-protocol').RequestType<Params, any, any>} type
+ * @param {import('vscode-languageserver').RequestType<Params, any, any>} type
  * @returns {Promise<Params>}
  */
 async function createOnRequestPromise(connection, type) {
   return new Promise((resolve) => {
     const disposable = connection.onRequest(type, (result) => {
       disposable.dispose()
-      // The timeout should be 0. However, this causes random test failures.
-      // This will be fixed in vscode-languageserver-protocol 3.17
-      // https://github.com/microsoft/vscode-languageserver-node/pull/776
-      setTimeout(() => resolve(result), 100)
+      resolve(result)
     })
   })
 }
