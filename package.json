@@ -33,10 +33,10 @@
     "index.d.ts"
   ],
   "dependencies": {
-    "@types/unist": "^2.0.0",
     "find-up": "^6.0.0",
     "load-plugin": "^5.0.0",
     "unified-engine": "^10.0.0",
+    "unist-util-lsp": "^1.0.0",
     "vfile": "^5.0.0",
     "vfile-message": "^3.0.0",
     "vscode-languageserver": "^8.0.0",
