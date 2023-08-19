@@ -408,7 +408,9 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async () => {
     [
       {
         message:
-          'Error: Whoops!\n    at Function.oneError (one-error.js:1:1)\n    at Function.freeze (index.js:1:1)',
+          'Cannot process file\n' +
+          'Error: Whoops!\n' +
+          '    at Function.oneError (one-error.js:1:1)',
         range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
         severity: 1
       }
@@ -758,8 +760,8 @@ test('`workspace/didChangeWorkspaceFolders`', async () => {
  */
 function cleanStack(stack, max) {
   return stack
-    .replace(/\(.+\//g, '(')
-    .replace(/\d+:\d+/g, '1:1')
+    .replaceAll(/\(.+\//g, '(')
+    .replaceAll(/\d+:\d+/g, '1:1')
     .split('\n')
     .slice(0, max)
     .join('\n')
