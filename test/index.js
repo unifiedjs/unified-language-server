@@ -1,6 +1,6 @@
 /**
- * @typedef {import('vscode-languageserver-protocol').ConfigurationParams} ConfigurationParams
- * @typedef {import('vscode-languageserver-protocol').ProtocolConnection} ProtocolConnection
+ * @typedef {import('vscode-languageserver').ConfigurationParams} ConfigurationParams
+ * @typedef {import('vscode-languageserver').ProtocolConnection} ProtocolConnection
  * @typedef {import('../lib/index.js').UnifiedLanguageServerSettings} UnifiedLanguageServerSettings
  */
 
@@ -28,7 +28,7 @@ import {
   PublishDiagnosticsNotification,
   RegistrationRequest,
   ShowMessageRequest
-} from 'vscode-languageserver-protocol/node.js'
+} from 'vscode-languageserver/node.js'
 
 /** @type {ProtocolConnection} */
 let connection
