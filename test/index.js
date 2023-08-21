@@ -222,7 +222,7 @@ test('workspace configuration `requireConfig`', async () => {
     textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
   })
   const openDiagnostics = await openDiagnosticsPromise
-  assert.deepEqual(
+  assert.notEqual(
     openDiagnostics.diagnostics.length,
     0,
     'should emit diagnostics on `textDocument/didOpen`'
@@ -308,7 +308,7 @@ test('global configuration `requireConfig`', async (t) => {
     textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
   })
   const openDiagnostics = await openDiagnosticsPromise
-  assert.deepEqual(
+  assert.notEqual(
     openDiagnostics.diagnostics.length,
     0,
     'should emit diagnostics on `textDocument/didOpen`'
@@ -338,7 +338,7 @@ test('global configuration `requireConfig`', async (t) => {
     changes: []
   })
   const watchedFileDiagnostics = await watchedFileDiagnosticsPromise
-  assert.notEqual(
+  assert.equal(
     0,
     watchedFileDiagnostics.diagnostics.length,
     'should emit diagnostics if requireConfig is true with config'
