@@ -1,6 +1,6 @@
 import assert from 'node:assert'
 
-/** @type {import('unified').Plugin<Array<void>, import('mdast').Root>} */
+/** @type {import('unified').Plugin<[], import('mdast').Root>} */
 export default function lotsOfWarnings() {
   return (tree, file) => {
     // This tiny plugins expects running on a `# heading`.

@@ -6,7 +6,7 @@ createUnifiedLanguageServer({
   plugins: [warn]
 })
 
-/** @type {import('unified').Plugin<Array<void>>} */
+/** @type {import('unified').Plugin<[]>} */
 function warn() {
   return (_, file) => {
     file.message(file.cwd)

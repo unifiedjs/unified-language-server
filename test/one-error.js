@@ -1,4 +1,4 @@
-/** @type {import('unified').Plugin<Array<void>, import('mdast').Root>} */
+/** @type {import('unified').Plugin<[], import('mdast').Root>} */
 export default function oneError() {
   throw new Error('Whoops!')
 }
