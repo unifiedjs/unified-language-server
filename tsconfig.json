@@ -4,10 +4,10 @@
     "checkJs": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "lib": ["es2020"],
+    "lib": ["es2022"],
     "module": "node16",
     "skipLibCheck": true,
     "strict": true,
-    "target": "es2020"
+    "target": "es2022"
   }
 }
