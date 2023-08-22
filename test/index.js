@@ -7,7 +7,6 @@
 import assert from 'node:assert/strict'
 import {spawn} from 'node:child_process'
 import fs from 'node:fs/promises'
-import path from 'node:path'
 import {afterEach, test} from 'node:test'
 import {fileURLToPath} from 'node:url'
 import {
@@ -722,8 +721,7 @@ test('`textDocument/codeAction` (and diagnostics)', async () => {
 })
 
 test('`initialize` w/ nothing (finds closest `package.json`)', async () => {
-  const cwd = new URL('..', import.meta.url)
-  startLanguageServer('remark-with-cwd.js', fileURLToPath(cwd))
+  startLanguageServer('remark-with-cwd.js', '../')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -754,8 +752,7 @@ test('`initialize` w/ nothing (finds closest `package.json`)', async () => {
 })
 
 test('`initialize` w/ nothing (find closest `.git`)', async () => {
-  const cwd = new URL('..', import.meta.url)
-  startLanguageServer('remark-with-cwd.js', fileURLToPath(cwd))
+  startLanguageServer('remark-with-cwd.js', '../')
   await fs.mkdir(new URL('folder-with-git/.git', import.meta.url), {
     recursive: true
   })
@@ -789,8 +786,7 @@ test('`initialize` w/ nothing (find closest `.git`)', async () => {
 
 test('`initialize` w/ `rootUri`', async () => {
   const cwd = new URL('folder/', import.meta.url)
-  const processCwd = new URL('..', cwd)
-  startLanguageServer('remark-with-cwd.js', fileURLToPath(processCwd))
+  startLanguageServer('remark-with-cwd.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -820,8 +816,8 @@ test('`initialize` w/ `rootUri`', async () => {
 })
 
 test('`initialize` w/ `workspaceFolders`', async () => {
-  const processCwd = new URL('.', import.meta.url)
-  startLanguageServer('remark-with-cwd.js', fileURLToPath(processCwd))
+  const processCwd = new URL('./', import.meta.url)
+  startLanguageServer('remark-with-cwd.js')
 
   const otherCwd = new URL('folder/', processCwd)
 
@@ -856,9 +852,9 @@ test('`initialize` w/ `workspaceFolders`', async () => {
 })
 
 test('`workspace/didChangeWorkspaceFolders`', async () => {
-  const processCwd = new URL('.', import.meta.url)
+  const processCwd = new URL('./', import.meta.url)
 
-  startLanguageServer('remark-with-cwd.js', fileURLToPath(processCwd))
+  startLanguageServer('remark-with-cwd.js')
 
   await connection.sendRequest(InitializeRequest.type, {
     processId: null,
@@ -939,18 +935,12 @@ function cleanStack(stack, max) {
  * this test file.
  * @param cwd The cwd to use for the process relative to this test file.
  */
-function startLanguageServer(serverFilePath, cwd = '.') {
+function startLanguageServer(serverFilePath, cwd = './') {
   const proc = spawn(
     'node',
-    [
-      path.resolve(
-        path.dirname(fileURLToPath(import.meta.url)),
-        serverFilePath
-      ),
-      '--node-ipc'
-    ],
+    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--node-ipc'],
     {
-      cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), cwd),
+      cwd: new URL(cwd, import.meta.url),
       stdio: [null, 'inherit', 'inherit', 'ipc']
     }
   )
