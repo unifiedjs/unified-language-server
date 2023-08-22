@@ -21,6 +21,8 @@ Create a **[language server][]** based on **[unified][]** ecosystems.
 *   [Examples](#examples)
 *   [Types](#types)
 *   [Language Server features](#language-server-features)
+    *   [Watching files](#watching-files)
+    *   [Requests](#requests)
 *   [Compatibility](#compatibility)
 *   [Related](#related)
 *   [Contribute](#contribute)
@@ -173,6 +175,14 @@ options.
 
 ## Language Server features
 
+### Watching files
+
+Clients should watch the `unified-engine`
+[config files][unified-engine-configuration] and notify the language server if a
+change was made.
+
+### Requests
+
 Language servers created using this package implement the following language
 server features:
 
@@ -290,5 +300,7 @@ abide by its terms.
 [unified-args]: https://github.com/unifiedjs/unified-args
 
 [unified-engine]: https://github.com/unifiedjs/unified-engine
+
+[unified-engine-configuration]: https://github.com/unifiedjs/unified-engine/blob/main/readme.md#implicit-configuration
 
 [vscode-languageserver]: https://github.com/microsoft/vscode-languageserver-node/tree/main/server
