@@ -4,6 +4,7 @@
 
 import assert from 'node:assert/strict'
 import {spawn} from 'node:child_process'
+import process from 'node:process'
 import fs from 'node:fs/promises'
 import {afterEach, test} from 'node:test'
 import {fileURLToPath} from 'node:url'
@@ -773,23 +774,35 @@ function cleanStack(stack, max) {
  *
  * @param {string} serverFilePath The path to the language server relative to
  * this test file.
- * @param cwd The cwd to use for the process relative to this test file.
+ * @param relativeCwd The cwd to use for the process relative to this test file.
  */
-function startLanguageServer(serverFilePath, cwd = './') {
-  const proc = spawn(
-    'node',
-    [fileURLToPath(new URL(serverFilePath, import.meta.url)), '--node-ipc'],
-    {
-      cwd: new URL(cwd, import.meta.url),
+function startLanguageServer(serverFilePath, relativeCwd = './') {
+  const bin = fileURLToPath(new URL(serverFilePath, import.meta.url))
+  const cwd = new URL(relativeCwd, import.meta.url)
+
+  // Using ipc is useful for debugging. This allows logging in the language
+  // server.
+  // Enabling this breaks code coverage
+  // https://github.com/bcoe/c8/issues/189
+  if (process.argv.includes('--ipc')) {
+    const proc = spawn('node', [bin, '--node-ipc'], {
+      cwd,
       stdio: [null, 'inherit', 'inherit', 'ipc']
-    }
-  )
-  connection = createProtocolConnection(
-    new IPCMessageReader(proc),
-    new IPCMessageWriter(proc)
-  )
+    })
+    connection = createProtocolConnection(
+      new IPCMessageReader(proc),
+      new IPCMessageWriter(proc)
+    )
+    connection.onDispose(() => {
+      proc.kill()
+    })
+  } else {
+    const proc = spawn('node', [bin, '--stdio'], {cwd})
+    connection = createProtocolConnection(proc.stdout, proc.stdin)
+  }
+
   connection.onDispose(() => {
-    proc.kill()
+    connection.end()
   })
   connection.listen()
 }
