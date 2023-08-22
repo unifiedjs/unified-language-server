@@ -32,8 +32,11 @@ import {
 /** @type {ProtocolConnection} */
 let connection
 
+const testremarkrcPath = new URL('.testremarkrc.json', import.meta.url)
+afterEach(() => fs.rm(testremarkrcPath, {force: true}))
+
 afterEach(() => {
-  connection.dispose()
+  connection?.dispose()
 })
 
 test('`initialize`', async () => {
@@ -288,7 +291,7 @@ test('workspace configuration `requireConfig`', async () => {
   )
 })
 
-test('global configuration `requireConfig`', async (t) => {
+test('global configuration `requireConfig`', async () => {
   startLanguageServer('remark-with-warnings.js')
 
   await connection.sendRequest(InitializeRequest.type, {
@@ -327,9 +330,7 @@ test('global configuration `requireConfig`', async (t) => {
     'should emit empty diagnostics if requireConfig is true without config'
   )
 
-  const rcPath = new URL('.testremarkrc.json', import.meta.url)
-  t.after(() => fs.rm(rcPath, {force: true}))
-  await fs.writeFile(rcPath, '{}\n')
+  await fs.writeFile(testremarkrcPath, '{}\n')
   const watchedFileDiagnosticsPromise = createOnNotificationPromise(
     PublishDiagnosticsNotification.type
   )
