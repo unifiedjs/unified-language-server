@@ -1,5 +1,7 @@
 /**
+ * @typedef {import('vscode-languageserver').ConfigurationParams} ConfigurationParams
  * @typedef {import('vscode-languageserver').ProtocolConnection} ProtocolConnection
+ * @typedef {import('../lib/index.js').UnifiedLanguageServerSettings} UnifiedLanguageServerSettings
  */
 
 import assert from 'node:assert/strict'
@@ -11,23 +13,31 @@ import {fileURLToPath} from 'node:url'
 import {
   createProtocolConnection,
   CodeActionRequest,
+  ConfigurationRequest,
+  DidChangeConfigurationNotification,
   DidChangeWorkspaceFoldersNotification,
+  DidChangeWatchedFilesNotification,
   DidCloseTextDocumentNotification,
   DidOpenTextDocumentNotification,
   DocumentFormattingRequest,
   LogMessageNotification,
+  InitializedNotification,
   InitializeRequest,
   IPCMessageReader,
   IPCMessageWriter,
   PublishDiagnosticsNotification,
+  RegistrationRequest,
   ShowMessageRequest
 } from 'vscode-languageserver/node.js'
 
 /** @type {ProtocolConnection} */
 let connection
 
+const testremarkrcPath = new URL('.testremarkrc.json', import.meta.url)
+afterEach(() => fs.rm(testremarkrcPath, {force: true}))
+
 afterEach(() => {
-  connection.dispose()
+  connection?.dispose()
 })
 
 test('`initialize`', async () => {
@@ -180,6 +190,159 @@ test('`textDocument/didOpen`, `textDocument/didClose` (and diagnostics)', async 
     closeDiagnostics,
     {uri, version: 1, diagnostics: []},
     'should emit empty diagnostics on `textDocument/didClose`'
+  )
+})
+
+test('workspace configuration `requireConfig`', async () => {
+  startLanguageServer('remark-with-warnings.js')
+
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {
+      workspace: {configuration: true}
+    },
+    workspaceFolders: null
+  })
+  await new Promise((resolve) => {
+    connection.onRequest(RegistrationRequest.type, resolve)
+    connection.sendNotification(InitializedNotification.type, {})
+  })
+
+  /** @type {ConfigurationParams | undefined} */
+  let configRequest
+  let requireConfig = false
+  connection.onRequest(ConfigurationRequest.type, (request) => {
+    configRequest = request
+    return [{requireConfig}]
+  })
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  assert.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics on `textDocument/didOpen`'
+  )
+  assert.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should request configurations for the open file'
+  )
+
+  configRequest = undefined
+  const cachedOpenDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  await cachedOpenDiagnosticsPromise
+  assert.equal(
+    configRequest,
+    undefined,
+    'should cache workspace configurations'
+  )
+
+  const closeDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidCloseTextDocumentNotification.type, {
+    textDocument: {uri}
+  })
+  await closeDiagnosticsPromise
+  const reopenDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  await reopenDiagnosticsPromise
+  assert.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should clear the cache if the file is opened'
+  )
+
+  configRequest = undefined
+  const changeConfigurationDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  requireConfig = true
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {}
+  })
+  const changeConfigurationDiagnostics =
+    await changeConfigurationDiagnosticsPromise
+  assert.deepEqual(
+    configRequest,
+    {items: [{scopeUri: uri, section: 'remark'}]},
+    'should clear the cache if the configuration changed'
+  )
+  assert.deepEqual(
+    {uri, version: 1, diagnostics: []},
+    changeConfigurationDiagnostics,
+    'should not emit diagnostics if requireConfig is false'
+  )
+})
+
+test('global configuration `requireConfig`', async () => {
+  startLanguageServer('remark-with-warnings.js')
+
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  assert.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics on `textDocument/didOpen`'
+  )
+
+  const changeConfigurationDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {requireConfig: true}
+  })
+  const changeConfigurationDiagnostics =
+    await changeConfigurationDiagnosticsPromise
+  assert.deepEqual(
+    {uri, version: 1, diagnostics: []},
+    changeConfigurationDiagnostics,
+    'should emit empty diagnostics if requireConfig is true without config'
+  )
+
+  await fs.writeFile(testremarkrcPath, '{}\n')
+  const watchedFileDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeWatchedFilesNotification.type, {
+    changes: []
+  })
+  const watchedFileDiagnostics = await watchedFileDiagnosticsPromise
+  assert.equal(
+    0,
+    watchedFileDiagnostics.diagnostics.length,
+    'should emit diagnostics if requireConfig is true with config'
   )
 })
 
