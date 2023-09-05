@@ -346,6 +346,47 @@ test('global configuration `requireConfig`', async () => {
   )
 })
 
+test('unified-engine errors', async () => {
+  startLanguageServer('misconfigured.js')
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {
+      uri,
+      languageId: 'markdown',
+      version: 1,
+      text: '# hi'
+    }
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+
+  assert.deepEqual(
+    openDiagnostics.diagnostics.map(({message, ...rest}) => ({
+      message: cleanStack(message, 3),
+      ...rest
+    })),
+    [
+      {
+        message:
+          'Missing `processor`\n' +
+          'Error: Missing `processor`\n' +
+          '    at engine (index.js:1:1)',
+        range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
+        severity: 1
+      }
+    ]
+  )
+})
+
 test('uninstalled processor so `window/showMessageRequest`', async () => {
   startLanguageServer('missing-package.js')
 
