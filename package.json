@@ -10,7 +10,7 @@
     "unified"
   ],
   "repository": "unifiedjs/unified-language-server",
-  "bugs": "https://github.com/unifiedjs/unified-language-serve/issues",
+  "bugs": "https://github.com/unifiedjs/unified-language-server/issues",
   "author": "aecepoglu",
   "funding": {
     "type": "opencollective",
@@ -24,9 +24,7 @@
   "sideEffects": false,
   "type": "module",
   "main": "index.js",
-  "exports": {
-    ".": "./index.js"
-  },
+  "exports": "./index.js",
   "files": [
     "lib/",
     "index.js",
