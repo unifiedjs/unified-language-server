@@ -23,6 +23,7 @@ Create a **[language server][]** based on **[unified][]** ecosystems.
 *   [Language Server features](#language-server-features)
     *   [Watching files](#watching-files)
     *   [Requests](#requests)
+    *   [Configuration](#configuration)
 *   [Compatibility](#compatibility)
 *   [Related](#related)
 *   [Contribute](#contribute)
@@ -214,6 +215,11 @@ server features:
     language server processes all open files using a unified pipeline.
     Any messages collected are published to the client using
     `textDocument/publishDiagnostics`.
+
+### Configuration
+
+*   `requireConfig` (default: `false`)
+    — If true, files will only be checked if a configuration file is present.
 
 ## Compatibility
 
