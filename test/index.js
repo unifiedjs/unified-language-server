@@ -981,7 +981,7 @@ function cleanStack(stack, max) {
  * @param relativeCwd The cwd to use for the process relative to this test file.
  */
 function startLanguageServer(serverFilePath, relativeCwd = './') {
-  const bin = fileURLToPath(new URL(serverFilePath, import.meta.url))
+  const binary = fileURLToPath(new URL(serverFilePath, import.meta.url))
   const cwd = new URL(relativeCwd, import.meta.url)
 
   // Using ipc is useful for debugging. This allows logging in the language
@@ -989,20 +989,23 @@ function startLanguageServer(serverFilePath, relativeCwd = './') {
   // Enabling this breaks code coverage
   // https://github.com/bcoe/c8/issues/189
   if (process.argv.includes('--ipc')) {
-    const proc = spawn('node', [bin, '--node-ipc'], {
+    const serverProcess = spawn('node', [binary, '--node-ipc'], {
       cwd,
       stdio: [null, 'inherit', 'inherit', 'ipc']
     })
     connection = createProtocolConnection(
-      new IPCMessageReader(proc),
-      new IPCMessageWriter(proc)
+      new IPCMessageReader(serverProcess),
+      new IPCMessageWriter(serverProcess)
     )
     connection.onDispose(() => {
-      proc.kill()
+      serverProcess.kill()
     })
   } else {
-    const proc = spawn('node', [bin, '--stdio'], {cwd})
-    connection = createProtocolConnection(proc.stdout, proc.stdin)
+    const serverProcess = spawn('node', [binary, '--stdio'], {cwd})
+    connection = createProtocolConnection(
+      serverProcess.stdout,
+      serverProcess.stdin
+    )
   }
 
   connection.onDispose(() => {
