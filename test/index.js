@@ -614,7 +614,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async () => {
         message:
           'Cannot process file\n' +
           'Error: Whoops!\n' +
-          '    at Function.oneError (one-error.js:1:1)',
+          '    at apply.oneError (one-error.js:1:1)',
         range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
         severity: 1
       }
