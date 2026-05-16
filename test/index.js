@@ -614,7 +614,7 @@ test('`initialize`, `textDocument/didOpen` (and a broken plugin)', async () => {
         message:
           'Cannot process file\n' +
           'Error: Whoops!\n' +
-          '    at apply.oneError (one-error.js:1:1)',
+          '    at oneError (one-error.js:1:1)',
         range: {start: {line: 0, character: 0}, end: {line: 0, character: 0}},
         severity: 1
       }
@@ -963,6 +963,7 @@ function cleanStack(stack, max) {
   return stack
     .replaceAll(/\(.+\//g, '(')
     .replaceAll(/\d+:\d+/g, '1:1')
+    .replaceAll(/(\s+at\s+)\w+\./g, '$1')
     .split('\n')
     .slice(0, max)
     .join('\n')
