@@ -220,6 +220,12 @@ server features:
 
 * `requireConfig` (default: `false`)
   — If true, files will only be checked if a configuration file is present.
+* `ignorePath` (`string`, optional)
+  — Filepath to an ignore file to load.
+  When relative, it is resolved from the workspace folder.
+* `ignorePathResolveFrom` (`'cwd' | 'dir'`, default: `'dir'`)
+  — Resolve patterns in `ignorePath` from the workspace folder (`'cwd'`)
+  or the ignore file’s folder (`'dir'`).
 
 ## Compatibility
 

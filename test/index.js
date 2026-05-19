@@ -36,6 +36,9 @@ let connection
 const testremarkrcPath = new URL('.testremarkrc.json', import.meta.url)
 afterEach(() => fs.rm(testremarkrcPath, {force: true}))
 
+const testremarkignorePath = new URL('.testremarkignore', import.meta.url)
+afterEach(() => fs.rm(testremarkignorePath, {force: true}))
+
 afterEach(() => {
   connection?.dispose()
 })
@@ -343,6 +346,135 @@ test('global configuration `requireConfig`', async () => {
     0,
     watchedFileDiagnostics.diagnostics.length,
     'should emit diagnostics if requireConfig is true with config'
+  )
+})
+
+test('workspace configuration `ignorePath`', async () => {
+  const workspace = new URL('./', import.meta.url)
+  await fs.writeFile(testremarkignorePath, 'lsp.md\n')
+  startLanguageServer('remark-with-warnings.js')
+
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: workspace.href,
+    capabilities: {workspace: {configuration: true}},
+    workspaceFolders: null
+  })
+  await new Promise((resolve) => {
+    connection.onRequest(RegistrationRequest.type, resolve)
+    connection.sendNotification(InitializedNotification.type, {})
+  })
+
+  /** @type {Record<string, unknown>} */
+  let configuration = {ignorePathResolveFrom: 'cwd'}
+  connection.onRequest(ConfigurationRequest.type, () => [configuration])
+
+  const uri = new URL('lsp.md', workspace).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  assert.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics when `ignorePath` is not set'
+  )
+
+  configuration = {
+    ignorePath: '.testremarkignore',
+    ignorePathResolveFrom: 'invalid'
+  }
+  const changeDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {}
+  })
+  const changeDiagnostics = await changeDiagnosticsPromise
+  assert.deepEqual(
+    changeDiagnostics,
+    {uri, version: 1, diagnostics: []},
+    'should emit empty diagnostics when `ignorePath` matches the file'
+  )
+})
+
+test('global configuration `ignorePath`', async () => {
+  const workspace = new URL('./', import.meta.url)
+  await fs.writeFile(testremarkignorePath, 'lsp.md\n')
+  startLanguageServer('remark-with-warnings.js')
+
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: workspace.href,
+    capabilities: {},
+    workspaceFolders: null
+  })
+
+  const uri = new URL('lsp.md', workspace).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  const openDiagnostics = await openDiagnosticsPromise
+  assert.notEqual(
+    openDiagnostics.diagnostics.length,
+    0,
+    'should emit diagnostics when `ignorePath` is not set'
+  )
+
+  const changeDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {
+      ignorePath: '.testremarkignore',
+      ignorePathResolveFrom: 'cwd'
+    }
+  })
+  const changeDiagnostics = await changeDiagnosticsPromise
+  assert.deepEqual(
+    changeDiagnostics,
+    {uri, version: 1, diagnostics: []},
+    'should emit empty diagnostics when `ignorePath` matches the file'
+  )
+})
+
+test('global configuration ignores invalid `ignorePath` types', async () => {
+  startLanguageServer('remark-with-warnings.js')
+  await connection.sendRequest(InitializeRequest.type, {
+    processId: null,
+    rootUri: null,
+    capabilities: {},
+    workspaceFolders: null
+  })
+  const uri = new URL('lsp.md', import.meta.url).href
+
+  const openDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidOpenTextDocumentNotification.type, {
+    textDocument: {uri, languageId: 'markdown', version: 1, text: '# hi'}
+  })
+  await openDiagnosticsPromise
+
+  const changeDiagnosticsPromise = createOnNotificationPromise(
+    PublishDiagnosticsNotification.type
+  )
+  connection.sendNotification(DidChangeConfigurationNotification.type, {
+    settings: {ignorePath: 42, ignorePathResolveFrom: 'invalid'}
+  })
+  const changeDiagnostics = await changeDiagnosticsPromise
+  assert.notEqual(
+    changeDiagnostics.diagnostics.length,
+    0,
+    'should ignore invalid `ignorePath` and process normally'
   )
 })
 
