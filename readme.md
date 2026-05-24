@@ -303,7 +303,7 @@ abide by its terms.
 
 [license]: license
 
-[author]: https://github.com/aecepoglu
+[author]: http://aecepoglu.com
 
 [typescript]: https://www.typescriptlang.org
 
