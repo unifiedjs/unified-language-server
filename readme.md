@@ -162,6 +162,7 @@ Name of configuration files to load (`string`, optional).
 
 For examples, see the following projects:
 
+* [`mdxlint-language-server`](https://github.com/remcohaszing/mdxlint-language-server)
 * `redot-language-server`
   (coming soon)
 * `rehype-language-server`
